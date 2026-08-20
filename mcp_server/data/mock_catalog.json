@@ -1,0 +1,10 @@
+[
+  {"id": 1, "nombre": "Estación Meteorológica Norte", "tipo": "clima", "region": "Norte", "valor": 23.5, "unidad": "°C"},
+  {"id": 2, "nombre": "Sensor de Calidad del Aire Centro", "tipo": "aire", "region": "Centro", "valor": 48, "unidad": "AQI"},
+  {"id": 3, "nombre": "Estación Meteorológica Sur", "tipo": "clima", "region": "Sur", "valor": 27.1, "unidad": "°C"},
+  {"id": 4, "nombre": "Monitor de Agua Río Centro", "tipo": "agua", "region": "Centro", "valor": 7.2, "unidad": "pH"},
+  {"id": 5, "nombre": "Sensor de Calidad del Aire Norte", "tipo": "aire", "region": "Norte", "valor": 62, "unidad": "AQI"},
+  {"id": 6, "nombre": "Monitor de Agua Presa Sur", "tipo": "agua", "region": "Sur", "valor": 6.9, "unidad": "pH"},
+  {"id": 7, "nombre": "Estación Meteorológica Centro", "tipo": "clima", "region": "Centro", "valor": 21.8, "unidad": "°C"},
+  {"id": 8, "nombre": "Sensor de Calidad del Aire Sur", "tipo": "aire", "region": "Sur", "valor": 35, "unidad": "AQI"}
+]

@@ -1,0 +1,16 @@
+[project]
+name = "tutorial-agent"
+version = "0.1.0"
+description = "Agente (agent-framework + Ollama) conectado al MCP del tutorial"
+requires-python = ">=3.12"
+dependencies = [
+    "agent-framework-ollama",
+    "mcp==1.28.1",
+    "httpx<1",
+    "fastapi",
+    "uvicorn[standard]",
+    "python-dotenv",
+]
+
+# Igual que en jub-agent/agent/pyproject.toml: documenta las dependencias;
+# el Dockerfile es la fuente de verdad real de las versiones instaladas.

@@ -1,0 +1,13 @@
+[project]
+name = "tutorial-mcp-server"
+version = "0.1.0"
+description = "Servidor MCP de ejemplo (tools genéricas + catálogo mock estilo jub)"
+requires-python = ">=3.12"
+dependencies = [
+    "fastmcp>=2.0",
+    "python-dotenv",
+]
+
+# Nota: igual que en jub-agent/mcp/pyproject.toml, este archivo documenta
+# las dependencias pero el Dockerfile instala versiones explícitas con pip
+# (más predecible para un tutorial que fijar todo vía poetry/uv lock).
