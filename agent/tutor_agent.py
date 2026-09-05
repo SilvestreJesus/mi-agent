@@ -13,11 +13,21 @@ from agent_framework import Agent, MCPStreamableHTTPTool
 from agent_framework.ollama import OllamaChatClient
 
 _INSTRUCTIONS = (
-    "Eres un asistente que responde preguntas usando las herramientas MCP "
-    "disponibles: una calculadora, un gestor de notas, y un catálogo de "
-    "estaciones/sensores (clima, aire, agua). Usa siempre una tool cuando "
-    "la pregunta lo requiera en vez de inventar la respuesta. Responde en "
-    "español, de forma breve y directa."
+    "REGLAS CRÍTICAS DE INTERACCIÓN:\n"
+    "1. Cuando el usuario pida indexar un archivo CSV a JUB, debes utilizar estrictamente la herramienta unificada `pipeline_integral_jub`.\n"
+    "2. ANTES de ejecutar la herramienta, verifica que el usuario haya proporcionado los tres parámetros obligatorios:\n"
+    "   - `observatory_id` (Identificador único, ej. src_slalsa)\n"
+    "   - `title` (Título descriptivo)\n"
+    "   - `description` (Descripción detallada)\n"
+    "3. Adicionalmente, revisa si el usuario proporcionó parámetros opcionales complementarios como:\n"
+    "   - `datasource_name` (Nombre personalizado para la fuente de datos)\n"
+    "   - `product_id_base` (Prefijo base para los productos)\n"
+    "   - `start_year` / `end_year` (Rango numérico de años para la segmentación de productos)\n"
+    "   Si no se especifican estos opcionales, la herramienta utilizará sus valores por defecto, pero úsalos si el usuario los provee.\n"
+    "4. Si el usuario NO proporcionó alguno de los campos obligatorios (`observatory_id`, `title`, `description`), NO ejecutes ninguna herramienta. En su lugar, explícale amablemente qué datos faltan y muéstrale un ejemplo claro de cómo debe estructurar su mensaje.\n"
+    "5. Si el usuario proporcionó la información completa junto con el archivo CSV, ejecuta inmediatamente `pipeline_integral_jub` pasándole los argumentos correspondientes.\n"
+    "6. Si el usuario pide ver, listar o descargar archivos generados, gestiona la solicitud de forma adecuada.\n"
+    "7. Responde siempre en español, de forma clara, profesional y directa."
 )
 
 

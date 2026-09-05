@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JUB — Agente </title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9L12 3z' fill='none' stroke='%23d6a348' stroke-width='1.8' stroke-linejoin='round'/%3E%3Ccircle cx='12' cy='12' r='2.2' fill='%23d6a348'/%3E%3C/svg%3E">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="flex h-screen">
+
+  <aside id="sidebar" class="sidebar flex flex-col shrink-0 h-full relative">
+
+    <div class="sidebar-rail">
+      <button onclick="toggleSidebar()" class="rail-btn" title="Mostrar menú">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <rect x="3" y="3" width="18" height="18" rx="3" stroke-width="1.7"/>
+          <line x1="9.5" y1="3" x2="9.5" y2="21" stroke-width="1.7"/>
+        </svg>
+      </button>
+
+      <button onclick="nuevoChat()" class="rail-btn mt-1" title="Nueva conversación">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-width="1.8" stroke-linecap="round" d="M12 5v14M5 12h14"/>
+        </svg>
+      </button>
+
+      <div class="rail-spacer"></div>
+
+      <button onclick="toggleTheme()" class="rail-btn" title="Cambiar tema">
+        <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5A6.7 6.7 0 0 1 12 3.5Z"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="sidebar-inner">
+
+      <div class="sidebar-topbar">
+        <span class="brand-word">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="brand-icon" style="margin-right:8px">
+            <path stroke-width="1.8" stroke-linejoin="round" d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9L12 3z"/>
+            <circle cx="12" cy="12" r="2.2" fill="currentColor"/>
+          </svg>
+          JUB
+        </span>
+        <button onclick="toggleSidebar()" class="panel-toggle-btn" title="Ocultar menú">
+          <svg width="19" height="19" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="18" height="18" rx="3" stroke-width="1.7"/>
+            <line x1="9.5" y1="3" x2="9.5" y2="21" stroke-width="1.7"/>
+          </svg>
+        </button>
+      </div>
+
+      <button onclick="nuevoChat()" class="new-chat w-full rounded-xl px-3 py-2.5 text-sm font-medium flex items-center gap-2.5" title="Nueva conversación">
+        <span class="text-lg leading-none shrink-0" style="color:var(--accent)">+</span>
+        <span class="flex-1 text-left" style="white-space:nowrap">Nueva conversación</span>
+        <span class="text-[10px] mono text-[color:var(--faint)]" style="white-space:nowrap">Ctrl K</span>
+      </button>
+
+      <div class="flex-1 min-h-0 flex flex-col">
+        <div class="mt-6 px-2 text-[10px] uppercase tracking-[.14em] mono text-[color:var(--faint)]" style="white-space:nowrap">
+          Conversaciones
+        </div>
+
+        <div id="history-list" class="mt-2 space-y-1 overflow-y-auto flex-1 pr-1"></div>
+      </div>
+
+      <div class="border-t pt-3 mt-3" style="border-color:var(--border)">
+        <div class="flex items-center justify-between px-2">
+          <span class="text-[11px] text-[color:var(--muted)]" style="white-space:nowrap">Tema</span>
+          <button class="theme-toggle" onclick="toggleTheme()" role="switch" aria-label="Cambiar tema"
+                  style="width:42px;height:24px;border-radius:999px;border:1px solid var(--border);background:var(--surface-2);position:relative;flex-shrink:0">
+            <span id="theme-knob" style="position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--accent);transition:.2s"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main flex-1 flex flex-col h-full relative min-w-0">
+
+    <header class="topbar shrink-0 flex items-center justify-end px-4 md:px-6">
+      <div class="agent-pill flex items-center gap-2 px-3 py-1.5">
+        <span id="header-dot" class="status-dot ok"></span>
+        <span id="conn-label" class="text-[11px] text-[color:var(--muted)]">JUB activo</span>
+      </div>
+    </header>
+
+    <section id="chat-container" class="flex-1 overflow-y-auto px-3 md:px-6 pb-56">
+      <div id="welcome" class="chat welcome fade">
+
+        <div class="flex flex-col items-center text-center">
+          <h1 class="welcome-title text-3xl md:text-4xl font-semibold max-w-2xl">
+            ¿En qué puedo ayudarte?
+          </h1>
+
+          <p class="mt-4 text-sm md:text-[15px] leading-7 text-[color:var(--muted)] max-w-xl">
+            Realiza consultas sobre tus datos, catálogos y procesos de análisis.
+            Escribe una instrucción en lenguaje natural y el agente se encargará del proceso.
+          </p>
+        </div>
+        <div class="suggestions-grid grid grid-cols-1 md:grid-cols-2 gap-3 mt-10 max-w-2xl mx-auto">
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Convierte el archivo adjunto a JSON y dime qué ID le asignaste.')">
+            <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M7 4.5h7l4 4v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z"/><path stroke-width="1.7" stroke-linecap="round" d="M9.5 13.5h5M9.5 16.5h3"/></svg>
+            </span>
+            <span>
+            <div class="text-sm font-medium mb-1">Convertir CSV a JSON</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Sube un CSV y genera automáticamente sus catálogos y registros en JSON.</div>
+            </span>
+        </button>
+
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Muéstrame los archivos JSON que se han generado hasta ahora.')">
+            <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="2.6" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M5 6v12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6M5 12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6"/></svg>
+            </span>
+            <span>
+            <div class="text-sm font-medium mb-1">Ver archivos generados</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Lista los catálogos y registros JSON disponibles y sus enlaces de descarga.</div>
+            </span>
+        </button>
+
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Indexa en el observatorio los JSON que acabas de convertir.')">
+            <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M4.5 12c1.8-4.2 5-6.3 7.5-6.3s5.7 2.1 7.5 6.3c-1.8 4.2-5 6.3-7.5 6.3S6.3 16.2 4.5 12Z"/></svg>
+            </span>
+            <span>
+            <div class="text-sm font-medium mb-1">Indexar en el Observatorio</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Registra los catálogos convertidos como un Observatorio en JUB.</div>
+            </span>
+        </button>
+
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Ingresa los registros de ese origen al DataSource de JUB.')">
+            <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M20 7 12 3 4 7v10l8 4 8-4V7Z"/><path stroke-width="1.7" stroke-linecap="round" d="M4 7l8 4 8-4M12 11v10"/></svg>
+            </span>
+            <span>
+            <div class="text-sm font-medium mb-1">Ingresar a DataSource</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Sube los registros del origen ya indexado a un DataSource de JUB.</div>
+            </span>
+        </button>
+
+
+        <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Convierte este archivo a JSON con el id: src_benceno_slp e indexa en JUB.\n\nobservatory_id: src_slalsa\ntitle: Benceno RETC\ndescription: Registro de emisiones de benceno por municipio reportadas al RETC.\ndatasource_name: DataSource Emisiones Benceno SLP\ndatasource_description: DataSource con las emisiones de benceno reportadas al RETC en SLP\nproduct_id_base: prod-benceno-slp\nproduct_name_base: Benceno RETC\nproduct_description_base: Emisiones de benceno reportadas al RETC\nstart_year: 2004\nend_year: 2014')">
+          <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg>
+          </span>
+          <span>
+            <div class="text-sm font-medium mb-1">Indexar completo (con ID personalizado)</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Rellena el ejemplo con tu propio ID y parámetros, y ejecuta el flujo completo de indexación en JUB.</div>
+          </span>
+        </button>
+        </div>
+      </div>
+    </section>
+
+    <div class="composer-wrap">
+      <div class="composer-area">
+        <form id="chat-form" onsubmit="enviarMensaje(event)" class="composer flex flex-col">
+
+        <div id="file-preview-container" class="hidden">
+            <div class="file-chip">
+              <span class="file-chip-icon">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m9 18-6-6 6-6M15 6l6 6-6 6"/></svg>
+              </span>
+              <span class="file-chip-info">
+                <span id="file-name" class="file-chip-name"></span>
+                <span class="file-chip-type">Archivo</span>
+              </span>
+              <button type="button" onclick="quitarArchivo()" class="file-chip-remove" aria-label="Quitar archivo">
+                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
+              </button>
+            </div>
+        </div>
+
+        <textarea
+            id="user-input"
+            rows="1"
+            placeholder="Pregunta a JUB o adjunta un CSV..."
+            autocomplete="off"
+            aria-label="Escribe tu consulta"
+        ></textarea>
+
+        <div class="flex items-center justify-between px-3 pb-3 pt-1">
+            <label class="cursor-pointer p-2 text-[color:var(--muted)] hover:text-[color:var(--text)] transition" title="Adjuntar CSV">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.414 6.586a6 6 0 108.486 8.486L20.5 13"/>
+            </svg>
+            <input type="file" id="csv-file-input" accept=".csv" class="hidden" onchange="manejarSeleccionArchivo(event)">
+            </label>
+
+            <button id="send-btn" type="submit" class="send-btn" aria-label="Enviar consulta">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5 12h13M13 6l6 6-6 6"/>
+            </svg>
+            </button>
+        </div>
+        </form>
+
+        <div class="flex items-center justify-center gap-2 mt-3">
+          <span id="footer-dot" class="status-dot ok"></span>
+          <span id="footer-label" class="text-[10px] mono text-[color:var(--faint)]">
+            JUB listo para recibir instrucciones
+          </span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="delete-modal" class="modal-backdrop">
+    <div class="modal">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-xl grid place-items-center bg-[color:var(--accent-soft)] text-[color:var(--accent)] shrink-0">
+          <svg width="19" height="19" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="1.7" stroke-linecap="round" d="M12 8v4M12 16h.01"/>
+            <circle cx="12" cy="12" r="8.5" stroke-width="1.7"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="font-semibold text-base">¿Eliminar esta conversación?</h3>
+          <p class="text-sm text-[color:var(--muted)] mt-1.5 leading-6">
+            El historial de esta conversación se eliminará de forma permanente.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 mt-6">
+        <button onclick="cerrarModal()" class="px-4 py-2 rounded-lg text-sm border text-[color:var(--muted)] hover:text-[color:var(--text)]" style="border-color:var(--border)">
+          Cancelar
+        </button>
+        <button id="confirm-del-btn" class="px-4 py-2 rounded-lg text-sm bg-red-600 hover:bg-red-500 text-white">
+          Eliminar
+        </button>
+      </div>
+    </div>
+  </div>
+
+<script>
+    const BACKEND_URL = "http://localhost:8091/chat";
+    let chatToDeleteId = null;
+    let currentSessionId = null; 
+
+const SUGGESTIONS_HTML = `
+      <div class="suggestions-grid grid grid-cols-1 md:grid-cols-2 gap-3 mt-10 max-w-2xl mx-auto">
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Convierte el archivo adjunto a JSON y dime qué ID le asignaste.')">
+          <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M7 4.5h7l4 4v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z"/><path stroke-width="1.7" stroke-linecap="round" d="M9.5 13.5h5M9.5 16.5h3"/></svg>
+          </span>
+          <span>
+            <div class="text-sm font-medium mb-1">Convertir CSV a JSON</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Sube un CSV y genera automáticamente sus catálogos y registros en JSON.</div>
+          </span>
+        </button>
+
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Muéstrame los archivos JSON que se han generado hasta ahora.')">
+          <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="2.6" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M5 6v12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6M5 12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6"/></svg>
+          </span>
+          <span>
+            <div class="text-sm font-medium mb-1">Ver archivos generados</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Lista los catálogos y registros JSON disponibles y sus enlaces de descarga.</div>
+          </span>
+        </button>
+
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Indexa en el observatorio los JSON que acabas de convertir.')">
+          <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M4.5 12c1.8-4.2 5-6.3 7.5-6.3s5.7 2.1 7.5 6.3c-1.8 4.2-5 6.3-7.5 6.3S6.3 16.2 4.5 12Z"/></svg>
+          </span>
+          <span>
+            <div class="text-sm font-medium mb-1">Indexar en el Observatorio</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Registra los catálogos convertidos como un Observatorio en JUB.</div>
+          </span>
+        </button>
+
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Ingresa los registros de ese origen al DataSource de JUB.')">
+          <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M20 7 12 3 4 7v10l8 4 8-4V7Z"/><path stroke-width="1.7" stroke-linecap="round" d="M4 7l8 4 8-4M12 11v10"/></svg>
+          </span>
+          <span>
+            <div class="text-sm font-medium mb-1">Ingresar a DataSource</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Sube los registros del origen ya indexado a un DataSource de JUB.</div>
+          </span>
+        </button>
+
+        
+        <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Convierte este archivo a JSON con el id: src_benceno_slp e indexa en JUB.\n\nobservatory_id: src_slalsa\ntitle: Benceno RETC\ndescription: Registro de emisiones de benceno por municipio reportadas al RETC.\ndatasource_name: DataSource Emisiones Benceno SLP\ndatasource_description: DataSource con las emisiones de benceno reportadas al RETC en SLP\nproduct_id_base: prod-benceno-slp\nproduct_name_base: Benceno RETC\nproduct_description_base: Emisiones de benceno reportadas al RETC\nstart_year: 2004\nend_year: 2014')">
+          <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg>
+          </span>
+          <span>
+            <div class="text-sm font-medium mb-1">Indexar completo (con ID personalizado)</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Rellena el ejemplo con tu propio ID y parámetros, y ejecuta el flujo completo de indexación en JUB.</div>
+          </span>
+        </button>
+      </div>`;
+    /* ---------- Tema ---------- */
+    function applyTheme(theme) {
+      document.documentElement.classList.toggle("light", theme === "light");
+      localStorage.setItem("jub-theme", theme);
+
+      const knob = document.getElementById("theme-knob");
+      if (knob) knob.style.transform = theme === "light" ? "translateX(18px)" : "translateX(0)";
+    }
+
+    function toggleTheme() {
+      const isLight = document.documentElement.classList.contains("light");
+      applyTheme(isLight ? "dark" : "light");
+    }
+
+    (function initTheme() {
+      const saved = localStorage.getItem("jub-theme");
+      applyTheme(saved || "dark");
+    })();
+
+    /* ---------- Sidebar ---------- */
+    function toggleSidebar() {
+      document.getElementById("sidebar").classList.toggle("collapsed");
+    }
+
+    if (window.innerWidth < 768) {
+      document.getElementById("sidebar").classList.add("collapsed");
+    }
+
+    document.addEventListener("keydown", (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        document.getElementById("user-input").focus();
+      }
+      if (event.key === "Escape") cerrarModal();
+    });
+
+    /* ---------- Modal ---------- */
+    function solicitarBorrar(event, id) {
+      event.stopPropagation();
+      chatToDeleteId = id;
+      document.getElementById("delete-modal").classList.add("active");
+    }
+
+    function cerrarModal() {
+      chatToDeleteId = null;
+      document.getElementById("delete-modal").classList.remove("active");
+    }
+
+    document.getElementById("confirm-del-btn").addEventListener("click", async () => {
+      if (!chatToDeleteId) return;
+
+      try {
+        await fetch(`http://localhost:8091/sessions/${chatToDeleteId}`, { method: "DELETE" });
+        if (currentSessionId === chatToDeleteId) {
+          nuevoChat();
+        }
+        await cargarHistorialConversaciones();
+      } catch (e) {
+        console.error("No se pudo eliminar la sesión", e);
+      }
+
+      const item = document.querySelector(`.session[data-id="${chatToDeleteId}"]`);
+      if (item) {
+        item.style.transition = "opacity .16s ease, transform .16s ease";
+        item.style.opacity = "0";
+        item.style.transform = "translateX(-10px)";
+        setTimeout(() => item.remove(), 160);
+      }
+
+      cerrarModal();
+    });
+
+    document.getElementById("delete-modal").addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) cerrarModal();
+    });
+
+    /* ---------- Estado ---------- */
+    function setStatus(state) {
+      const dots = [
+        document.getElementById("header-dot"),
+        document.getElementById("footer-dot")
+      ];
+
+      dots.forEach(dot => {
+        if (!dot) return;
+        dot.className = "status-dot";
+        if (state === "ok") dot.classList.add("ok");
+        if (state === "pending") dot.classList.add("pending");
+        if (state === "err") dot.classList.add("err");
+      });
+
+      const footer = document.getElementById("footer-label");
+      const header = document.getElementById("conn-label");
+
+      if (state === "pending") {
+        footer.textContent = "JUB está procesando la instrucción...";
+        header.textContent = "Procesando";
+      } else if (state === "err") {
+        footer.textContent = "Sin conexión con el servidor local";
+        header.textContent = "Sin conexión";
+      } else {
+        footer.textContent = "JUB listo para recibir instrucciones";
+        header.textContent = "JUB activo";
+      }
+    }
+
+    /* ---------- Input ---------- */
+    const input = document.getElementById("user-input");
+    const sendBtn = document.getElementById("send-btn");
+
+    function resizeInput() {
+      input.style.height = "auto";
+      input.style.height = Math.min(input.scrollHeight, 220) + "px";
+    }
+
+    input.addEventListener("input", resizeInput);
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        document.getElementById("chat-form").requestSubmit();
+      }
+    });
+
+    function usarSugerencia(texto) {
+      input.value = texto;
+      resizeInput();
+      input.focus();
+    }
+
+    /* ---------- Adjunto y Archivo ---------- */
+    let archivoAdjunto = null;
+
+    function manejarSeleccionArchivo(event) {
+      const file = event.target.files[0];
+      if (file) {
+        archivoAdjunto = file;
+        document.getElementById("file-name").textContent = file.name;
+        document.getElementById("file-preview-container").classList.remove("hidden");
+      }
+    }
+
+    function quitarArchivo() {
+      archivoAdjunto = null;
+      document.getElementById("csv-file-input").value = "";
+      document.getElementById("file-preview-container").classList.add("hidden");
+    }
+
+    /* ---------- Historial de Conversaciones ---------- */
+    function renderSessionItem(s, isActive) {
+      const activeClass = isActive ? " active" : "";
+      const textClass = isActive
+        ? "truncate text-sm flex-1"
+        : "truncate text-sm text-[color:var(--muted)] flex-1";
+
+      return `
+        <div class="session${activeClass} flex items-center gap-2 px-3 py-2.5 cursor-pointer" data-id="${s.id}">
+          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="text-[color:var(--muted)] shrink-0">
+            <path stroke-width="1.7" stroke-linecap="round" d="M7 4.5h10A2.5 2.5 0 0 1 19.5 7v10a2.5 2.5 0 0 1-2.5 2.5H7A2.5 2.5 0 0 1 4.5 17V7A2.5 2.5 0 0 1 7 4.5Z"/>
+            <path stroke-width="1.7" stroke-linecap="round" d="M8 9h8M8 12h6"/>
+          </svg>
+          <span class="${textClass}" onclick="cargarConversacion('${s.id}')">${escapeHtml(s.title)}</span>
+          <button class="delete-session icon-btn" style="width:28px;height:28px" onclick="solicitarBorrar(event,'${s.id}')" title="Eliminar">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-width="1.7" stroke-linecap="round" d="M6 7h12M9.5 7V5.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V7m-8 0 .6 12a1 1 0 0 0 1 1h6.8a1 1 0 0 0 1-1L18 7"/>
+            </svg>
+          </button>
+        </div>`;
+    }
+
+    async function cargarHistorialConversaciones() {
+      try {
+        const res = await fetch("http://localhost:8091/sessions");
+        if (!res.ok) return;
+        const sessions = await res.json();
+
+        const historyList = document.getElementById("history-list");
+        historyList.innerHTML = sessions
+          .map(s => renderSessionItem(s, s.id === currentSessionId))
+          .join("");
+      } catch (e) {
+        console.error("No se pudo cargar el historial", e);
+      }
+    }
+
+    async function cargarConversacion(id) {
+      try {
+        const res = await fetch(`http://localhost:8091/sessions/${id}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        currentSessionId = id;
+
+        document.querySelectorAll("#history-list .session").forEach(el => {
+          el.classList.toggle("active", el.getAttribute("data-id") === id);
+          const label = el.querySelector("span.truncate");
+          if (label) {
+            label.className = el.classList.contains("active")
+              ? "truncate text-sm flex-1"
+              : "truncate text-sm text-[color:var(--muted)] flex-1";
+          }
+        });
+
+        const chatContainer = document.getElementById("chat-container");
+        chatContainer.innerHTML = "";
+
+        data.messages.forEach(msg => {
+          if (msg.role === "user") {
+            chatContainer.insertAdjacentHTML("beforeend", `
+              <div class="chat message-user fade">
+                <div class="user-bubble">${escapeHtml(msg.content).replace(/\n/g, "<br>")}</div>
+              </div>
+            `);
+          } else {
+            chatContainer.insertAdjacentHTML("beforeend", `
+              <div class="chat message fade">
+                <div class="agent-avatar" style="width:38px;height:38px;border-radius:11px">
+                  <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-width="1.8" stroke-linejoin="round" d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9L12 3z"/>
+                    <circle cx="12" cy="12" r="2.2" fill="currentColor"/>
+                  </svg>
+                </div>
+                <div class="assistant-content flex-1">
+                  <div class="assistant-label mb-2">JUB</div>
+                  <div class="whitespace-pre-wrap">${escapeHtml(msg.content)}</div>
+                </div>
+              </div>
+            `);
+          }
+        });
+
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      } catch (e) {
+        console.error("Error al cargar la sesión", e);
+      }
+    }
+
+    /* ---------- Chat Principal ---------- */
+    async function enviarMensaje(event) {
+      event.preventDefault();
+
+      const mensajeTexto = input.value.trim();
+      const chatContainer = document.getElementById("chat-container");
+      const welcome = document.getElementById("welcome");
+
+      if (!mensajeTexto && !archivoAdjunto) return;
+      if (welcome) welcome.remove();
+
+      let textoVisual = mensajeTexto;
+      if (archivoAdjunto && !mensajeTexto) {
+        textoVisual = `Convierte el archivo ${archivoAdjunto.name} a CSV/JSON`;
+      } else if (archivoAdjunto) {
+        textoVisual += ` [Adjunto: ${archivoAdjunto.name}]`;
+      }
+
+      chatContainer.insertAdjacentHTML("beforeend", `
+        <div class="chat message-user fade">
+          <div class="user-bubble">${escapeHtml(textoVisual).replace(/\n/g, "<br>")}</div>
+        </div>
+      `);
+
+      input.value = "";
+      resizeInput();
+      
+      const archivoActual = archivoAdjunto;
+      quitarArchivo();
+
+      sendBtn.disabled = true;
+      setStatus("pending");
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+
+      // Determinación dinámica del texto de carga según la instrucción o archivo
+      let textoCargando = "generando respuesta";
+      const textoLower = mensajeTexto.toLowerCase();
+      
+      if (archivoActual) {
+        textoCargando = "procesando y convirtiendo archivo CSV";
+      } else if (textoLower.includes("observatorio") || textoLower.includes("indexa")) {
+        textoCargando = "indexando en el observatorio";
+      } else if (textoLower.includes("datasource") || textoLower.includes("ingresa")) {
+        textoCargando = "registrando en DataSource";
+      } else if (textoLower.includes("archivos") || textoLower.includes("muéstrame") || textoLower.includes("lista")) {
+        textoCargando = "consultando archivos generados";
+      }
+
+      const loadingId = "loading-" + Date.now();
+      chatContainer.insertAdjacentHTML("beforeend", `
+        <div id="${loadingId}" class="chat message fade">
+          <div class="agent-avatar generating" style="width:38px;height:38px;border-radius:11px">
+            <svg class="generating-spinner" width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="42 100"/>
+            </svg>
+          </div>
+          <div class="assistant-content">
+            <div class="assistant-label mb-2">JUB <span class="font-normal text-[color:var(--faint)]">· ${textoCargando}</span></div>
+            <div class="flex items-center gap-1.5 py-1">
+              <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
+            </div>
+          </div>
+        </div>
+      `);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+
+      try {
+        const formData = new FormData();
+        formData.append("message", mensajeTexto || "Procesa este archivo");
+        if (currentSessionId) formData.append("session_id", currentSessionId);
+        if (archivoActual) formData.append("file", archivoActual);
+
+        const response = await fetch(BACKEND_URL, {
+          method: "POST",
+          body: formData
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        currentSessionId = data.session_id;
+        await cargarHistorialConversaciones();
+
+        const loading = document.getElementById(loadingId);
+        if (loading) loading.remove();
+        setStatus("ok");
+
+        const respuestaSistema = data.text || data.response || JSON.stringify(data, null, 2);
+        let htmlSalida = `<div class="whitespace-pre-wrap">${escapeHtml(String(respuestaSistema))}</div>`;
+
+        if (data.downloads && Array.isArray(data.downloads)) {
+          htmlSalida += `<div class="mt-3 flex flex-wrap gap-2">`;
+          data.downloads.forEach(dl => {
+            htmlSalida += `<a href="${dl.url}" download="${dl.name}">⬇ Descargar ${dl.name}</a>`;
+          });
+          htmlSalida += `</div>`;
+        }
+
+        chatContainer.insertAdjacentHTML("beforeend", `
+          <div class="chat message fade">
+            <div class="agent-avatar" style="width:38px;height:38px;border-radius:11px">
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-width="1.8" stroke-linejoin="round" d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9L12 3z"/>
+                <circle cx="12" cy="12" r="2.2" fill="currentColor"/>
+              </svg>
+            </div>
+            <div class="assistant-content flex-1">
+              <div class="assistant-label mb-2">JUB</div>
+              ${htmlSalida}
+            </div>
+          </div>
+        `);
+
+      } catch (error) {
+        const loading = document.getElementById(loadingId);
+        if (loading) loading.remove();
+        setStatus("err");
+
+        chatContainer.insertAdjacentHTML("beforeend", `
+          <div class="chat message fade">
+            <div class="agent-avatar" style="width:38px;height:38px;border-radius:11px;background:var(--danger);color:white">
+              !
+            </div>
+            <div class="assistant-content flex-1">
+              <div class="assistant-label mb-2" style="color:var(--danger)">No se pudo completar la consulta</div>
+              <div class="text-[color:var(--muted)]">
+                No fue posible establecer comunicación con el servidor local. Asegúrate de que FastAPI esté corriendo en 
+                <span class="mono text-xs">http://localhost:8091</span> y tenga habilitado CORS.<br>
+                <span class="mono text-xs text-red-400 mt-1 block">${escapeHtml(error.message)}</span>
+              </div>
+            </div>
+          </div>
+        `);
+      }
+
+      sendBtn.disabled = false;
+      input.focus();
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function nuevoChat() {
+      currentSessionId = null;
+      setStatus("ok");
+
+      document.querySelectorAll("#history-list .session").forEach(el => {
+        el.classList.remove("active");
+        const label = el.querySelector("span.truncate");
+        if (label) label.className = "truncate text-sm text-[color:var(--muted)] flex-1";
+      });
+
+      document.getElementById("chat-container").innerHTML = `
+        <div id="welcome" class="chat welcome fade">
+          <div class="flex flex-col items-center text-center">
+            <h1 class="welcome-title text-3xl md:text-4xl font-semibold max-w-2xl">
+              ¿En qué puedo ayudarte?
+            </h1>
+            <p class="mt-4 text-sm md:text-[15px] leading-7 text-[color:var(--muted)] max-w-xl">
+              Realiza consultas sobre tus datos, catálogos y procesos de análisis.
+              Escribe una instrucción en lenguaje natural y el agente se encargará del proceso.
+            </p>
+          </div>
+          ${SUGGESTIONS_HTML}
+        </div>
+      `;
+
+      input.value = "";
+      resizeInput();
+      input.focus();
+    }
+
+    // Inicialización al cargar la página
+    setStatus("ok");
+    input.focus();
+    cargarHistorialConversaciones();
+</script>
+</body>
+</html>

@@ -42,8 +42,11 @@ services:
     environment:
       OLLAMA_URL: "http://ollama:11434"
       MCP_SERVER_URL: "http://mcp-server:8000/mcp"
+      JUB_API_URL: "http://host.docker.internal:5000"
     ports:
       - "8091:8081"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       ollama:
         condition: service_healthy
@@ -56,6 +59,19 @@ services:
       retries: 10
       start_period: 20s
     networks: [tutorial-net]
+
+  jub-agent-frontend:
+      image: nginx:alpine
+      container_name: mcp-agent-frontend
+      ports:
+        - "4000:80"
+      volumes:
+        - ./index.html:/usr/share/nginx/html/index.html
+        - ./styles.css:/usr/share/nginx/html/styles.css
+      networks: [tutorial-net]
+      restart: always
+    
+
 
 networks:
   tutorial-net:
