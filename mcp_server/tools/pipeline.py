@@ -50,16 +50,13 @@ def register(mcp: FastMCP):
         Úsala SIEMPRE que necesites extraer información, describir gráficas o entender el contexto visual de un enlace de internet.
         """
         try:
-            # 1. Descargar la imagen desde la URL proporcionada
             async with httpx.AsyncClient(timeout=30.0) as fetch_client:
                 img_response = await fetch_client.get(url_imagen)
                 img_response.raise_for_status()
                 img_bytes = img_response.content
 
-            # 2. Convertir los bytes a Base64 para Ollama
             img_base64 = base64.b64encode(img_bytes).decode('utf-8')
             
-            # 3. Preparar el payload
             payload = {
                 "model": OLLAMA_VISION_MODEL,
                 "prompt": pregunta_o_instruccion,
@@ -67,7 +64,6 @@ def register(mcp: FastMCP):
                 "stream": False
             }
             
-            # 4. Enviar al modelo de Visión de Ollama
             async with httpx.AsyncClient(timeout=120.0) as client:
                 response = await client.post(f"{OLLAMA_URL_INTERNO}/api/generate", json=payload)
                 response.raise_for_status()
@@ -104,10 +100,10 @@ def register(mcp: FastMCP):
         product_name_base: Optional[str] = None,     
         product_description_base: Optional[str] = None, 
         product_id_base: Optional[str] = None,        
-        start_year: int = 2004,                       
-        end_year: int = 2014,                         
+        start_year: Optional[str] = None,
+        end_year: Optional[str] = None,
         product_file_filename: Optional[str] = None,
-        product_file_content: Optional[bytes] = None,
+        product_file_content: Optional[str] = None,
         datasource_name: Optional[str] = None,
         datasource_description: Optional[str] = None,
         source_id: Optional[str] = None,             
@@ -128,6 +124,9 @@ def register(mcp: FastMCP):
         if not product_description_base: missing_params.append("product_description_base")
         if not datasource_name: missing_params.append("datasource_name")
         if not datasource_description: missing_params.append("datasource_description")
+        
+        if not start_year: missing_params.append("start_year")
+        if not end_year: missing_params.append("end_year")
 
         if missing_params:
             return json.dumps(
@@ -193,7 +192,6 @@ def register(mcp: FastMCP):
                 },
             }
             
-            # <-- AGREGADO: Inyección de la URL de imagen al Observatorio
             if image_url:
                 setup_payload["image_url"] = image_url
 
@@ -311,16 +309,21 @@ def register(mcp: FastMCP):
             else:
                 warnings.append(f"Error cargando catálogos: {cat_res.text[:150]}")
 
-            # -------------------------------------------------------------------------
-            # MAGIA RESTAURADA: Creación masiva de productos
-            # -------------------------------------------------------------------------
             steps_log.append("[3/6] Registrando productos múltiples por rango de años...")
             
+            try:
+                s_year = int(start_year)
+                e_year = int(end_year)
+            except (ValueError, TypeError):
+                return json.dumps({
+                    "status": "error",
+                    "message": "Los parámetros start_year y end_year deben ser números válidos enviados como texto (ej. '2020')."
+                }, ensure_ascii=False)
+
             products_list = []
             
-            # Producto Principal
             main_prod = {
-                "name": f"Dataset {product_name_base} {start_year}-{end_year}",
+                "name": f"Dataset {product_name_base} {s_year}-{e_year}",
                 "description": f"Dataset completo de {product_description_base}",
                 "catalog_item_ids": []
             }
@@ -328,8 +331,7 @@ def register(mcp: FastMCP):
                 main_prod["product_id"] = f"{product_id_base}-dataset"
             products_list.append(main_prod)
 
-            # Productos Anuales
-            for year in range(start_year, end_year + 1):
+            for year in range(s_year, e_year + 1):
                 y_prod = {
                     "name": f"{product_name_base} — {year}",
                     "description": f"{product_description_base} - Periodo {year}",
@@ -353,11 +355,11 @@ def register(mcp: FastMCP):
             else:
                 warnings.append(f"Error al registrar productos: {prod_res.text[:150]}")
 
-            steps_log.append("[4/6] Subiendo imagen o recurso al producto (POST /api/v2/products/{id}/upload)...")
+            steps_log.append("[4/6] Subiendo imagen o recurso al producto...")
             if created_products and (product_file_filename or product_file_content):
-                # Se asocia el archivo al producto principal (el primero de la lista)
                 target_product_id = created_products[0].get("product_id") or created_products[0].get("id")
-                file_bytes = product_file_content
+                
+                file_bytes = product_file_content.encode('utf-8') if product_file_content else None
                 file_name = product_file_filename or "recurso.png"
 
                 if not file_bytes and product_file_filename:
