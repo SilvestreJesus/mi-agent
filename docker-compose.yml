@@ -1,8 +1,8 @@
 services:
   ollama:
     image: ollama/ollama
-    ports:
-      - "11434:11434"
+    #ports:
+     # - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     healthcheck:
@@ -17,18 +17,34 @@ services:
         ollama serve &
         sleep 3
         ollama pull "${OLLAMA_MODEL:-qwen2.5:1.5b}"
+        ollama pull "${OLLAMA_VISION_MODEL:-llava}"
         wait
     networks: [tutorial-net]
+    # =========================================================================
+    # DESCOMENTA LAS SIGUIENTES 6 LÍNEAS EN TU SERVIDOR REMOTO PARA USAR GPU
+    # =========================================================================
+    deploy:
+      resources:
+         reservations:
+           devices:
+             - driver: nvidia
+               count: 1
+               capabilities: [gpu]
 
   mcp-server:
     build: ./mcp_server
     env_file: .env
     environment:
       MCP_PORT: "8000"
-    ports:
-      # Puerto host 8090 (no 8000) para no chocar con otros stacks locales
-      # (ej. chromadb de jub-agent suele ocupar 8000/8001 en esta máquina).
-      - "8090:8000"
+      OLLAMA_URL: "http://ollama:11434"
+      OLLAMA_VISION_MODEL: "${OLLAMA_VISION_MODEL:-llava}"
+      JUB_API_URL: "${JUB_API_URL}"  
+    #ports:
+     # - "8090:8000"
+    volumes:
+      - ./mcp_server/sources:/app/sources
+      - ./mcp_server/data:/app/data
+      - ./mcp_server/images:/app/images
     healthcheck:
       test: ["CMD", "python", "-c", "import socket; socket.create_connection(('localhost', 8000), timeout=3)"]
       interval: 10s
@@ -42,11 +58,12 @@ services:
     environment:
       OLLAMA_URL: "http://ollama:11434"
       MCP_SERVER_URL: "http://mcp-server:8000/mcp"
-      JUB_API_URL: "http://host.docker.internal:5000"
+      JUB_API_URL: "${JUB_API_URL}"  
     ports:
       - "8091:8081"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./mcp_server/sources:/app/sources
+      - ./mcp_server/images:/app/images
     depends_on:
       ollama:
         condition: service_healthy
@@ -59,19 +76,17 @@ services:
       retries: 10
       start_period: 20s
     networks: [tutorial-net]
-
-  jub-agent-frontend:
-      image: nginx:alpine
-      container_name: mcp-agent-frontend
-      ports:
-        - "4000:80"
-      volumes:
-        - ./index.html:/usr/share/nginx/html/index.html
-        - ./styles.css:/usr/share/nginx/html/styles.css
-      networks: [tutorial-net]
-      restart: always
     
-
+  jub-agent-frontend:
+    image: nginx:alpine
+    container_name: mcp-agent-frontend
+    ports:
+      - "4000:80"
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html
+      - ./styles.css:/usr/share/nginx/html/styles.css
+    networks: [tutorial-net]
+    restart: always
 
 networks:
   tutorial-net:

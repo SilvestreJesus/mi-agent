@@ -1,402 +1,477 @@
 import csv
+import io
 import json
 import os
+import base64
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import httpx
 from fastmcp import FastMCP
 
-JUB_URL = os.environ.get("JUB_API_URL", "http://host.docker.internal:5000")
-JUB_USER = os.environ.get("JUB_USERNAME", "invitado")
-JUB_PASS = os.environ.get("JUB_PASSWORD", "invitado")
+from config import JUB_URL, JUB_USER, JUB_PASS, DATA_RECORDS_FILE, STATE_FILE
 
-STATE_FILE = Path(".state.json")
+SOURCES_DIR = Path("sources")
+IMAGES_DIR = Path("images")
+DATA_DIR = Path("data")
 
-CATALOG_LEVELS = {
-    "SPATIAL": 0,
-    "TEMPORAL": 1,
-    "INTEREST": 2,
-    "REFERENCE": 3,
-    "OBSERVABLE": 4,
-}
+OLLAMA_URL_INTERNO = os.environ.get("OLLAMA_URL", "http://ollama:11434")
+OLLAMA_VISION_MODEL = os.environ.get("OLLAMA_VISION_MODEL", "llava")
 
 
-def _is_conflict(status_code: int, detail: str) -> bool:
-    if status_code in (403, 409):
-        return True
-    return any(
-        k in detail.lower()
-        for k in ("409", "403", "already", "duplicate", "exists", "forbidden")
-    )
+def resolve_existing_path(filename: str) -> Path:
+    candidate = Path(filename)
+    if candidate.exists():
+        return candidate
 
+    for folder in [
+        SOURCES_DIR,
+        Path("/app/sources"),
+        IMAGES_DIR,
+        Path("/app/images"),
+        DATA_DIR,
+        Path("/app"),
+    ]:
+        alt = folder / candidate.name
+        if alt.exists():
+            return alt
 
-def _flatten_items(items: List[Dict[str, Any]]):
-    for item in items:
-        yield item
-        if "children" in item and item["children"]:
-            yield from _flatten_items(item["children"])
+    return candidate
 
 
 def register(mcp: FastMCP):
-    @mcp.tool(name="pipeline_integral_jub")
-    async def pipeline_integral_jub(
-        csv_filename: str = "data/emisiones_benceno.csv",
-        observatory_id: str = "",
-        title: str = "",
-        description: str = "",
-        datasource_name: str = "DataSource Automático",
-        datasource_description: str = "",  # Descripción propia del DataSource
-        source_id: str = "",  # Dinámico recibido por parámetro
-        product_id_base: str = "",  # Prefijo base para los product_id
-        product_name_base: str = "",  # Nombre base para los productos
-        product_description_base: str = "",  # Descripción base para los productos
-        start_year: int = 2004,
-        end_year: int = 2014,
-        overwrite: bool = False,  # Si True, actualiza lo ya existente
+    
+    @mcp.tool(name="analizar_imagen_con_ia")
+    async def analizar_imagen_con_ia(
+        url_imagen: str, 
+        pregunta_o_instruccion: str
     ) -> str:
         """
-        Ejecuta el pipeline completo de indexación a JUB de forma integral y dinámica:
-        1. Valida conexión y autenticación con JUB.
-        2. Registra el observatorio (o detecta que ya existe).
-        3. Localiza o genera dinámicamente e ingesta los catálogos según el CSV.
-        4. Registra el DataSource e ingesta registros.
-        5. Crea los productos múltiples por rango de años.
+        Usa un modelo de Inteligencia Artificial Multimodal (Visión) para analizar una imagen desde una URL.
+        Úsala SIEMPRE que necesites extraer información, describir gráficas o entender el contexto visual de un enlace de internet.
         """
-        if not observatory_id or not title or not description:
+        try:
+            # 1. Descargar la imagen desde la URL proporcionada
+            async with httpx.AsyncClient(timeout=30.0) as fetch_client:
+                img_response = await fetch_client.get(url_imagen)
+                img_response.raise_for_status()
+                img_bytes = img_response.content
+
+            # 2. Convertir los bytes a Base64 para Ollama
+            img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+            
+            # 3. Preparar el payload
+            payload = {
+                "model": OLLAMA_VISION_MODEL,
+                "prompt": pregunta_o_instruccion,
+                "images": [img_base64],
+                "stream": False
+            }
+            
+            # 4. Enviar al modelo de Visión de Ollama
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                response = await client.post(f"{OLLAMA_URL_INTERNO}/api/generate", json=payload)
+                response.raise_for_status()
+                
+            data = response.json()
+            respuesta_vision = data.get('response', 'No se obtuvo respuesta.')
+            
+            return json.dumps({
+                "status": "success",
+                "url": url_imagen,
+                "analisis": respuesta_vision
+            }, ensure_ascii=False, indent=2)
+            
+        except httpx.HTTPError as he:
             return json.dumps({
                 "status": "error",
-                "message": "Faltan parámetros obligatorios para la indexación en JUB (observatory_id, title, description).",
-            }, ensure_ascii=False, indent=2)
+                "message": f"Error al descargar la imagen de la URL: {str(he)}"
+            }, ensure_ascii=False)
+        except Exception as e:
+            return json.dumps({
+                "status": "error",
+                "message": f"Error al analizar la imagen con IA: {str(e)}"
+            }, ensure_ascii=False)
+
+    @mcp.tool(name="pipeline_integral_jub_v2")
+    async def pipeline_integral_jub_v2(
+        observatory_title: Optional[str] = None,
+        observatory_description: Optional[str] = None,
+        institution: Optional[str] = None,
+        edition: Optional[str] = None,
+        country: Optional[str] = None,
+        csv_filename: Optional[str] = None,
+        csv_content: Optional[str] = None,
+        product_name_base: Optional[str] = None,     
+        product_description_base: Optional[str] = None, 
+        product_id_base: Optional[str] = None,        
+        start_year: int = 2004,                       
+        end_year: int = 2014,                         
+        product_file_filename: Optional[str] = None,
+        product_file_content: Optional[bytes] = None,
+        datasource_name: Optional[str] = None,
+        datasource_description: Optional[str] = None,
+        source_id: Optional[str] = None,             
+        image_url: Optional[str] = None,              
+        user_id: str = "usr_system",
+    ) -> str:
+        """Herramienta v2 para la provisión e indexación de observatorios, catálogos,
+        productos múltiples por año, archivos/imágenes y datasources en JUB API v2.
+        """
+        missing_params = []
+        if not observatory_title: missing_params.append("observatory_title")
+        if not observatory_description: missing_params.append("observatory_description")
+        if not institution: missing_params.append("institution")
+        if not edition: missing_params.append("edition")
+        if not country: missing_params.append("country")
+        if not csv_filename and not csv_content: missing_params.append("csv_filename o csv_content")
+        if not product_name_base: missing_params.append("product_name_base")
+        if not product_description_base: missing_params.append("product_description_base")
+        if not datasource_name: missing_params.append("datasource_name")
+        if not datasource_description: missing_params.append("datasource_description")
+
+        if missing_params:
+            return json.dumps(
+                {
+                    "status": "missing_parameters",
+                    "message": "Faltan parámetros requeridos para indexar en JUB.",
+                    "missing_parameters": missing_params,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
 
         steps_log: List[str] = []
         warnings: List[str] = []
         resumen: Dict[str, str] = {}
 
-        path_csv = Path(csv_filename)
-        # Si la ruta es relativa y no existe, intentar buscarla dentro de la carpeta data del proyecto
-        if not path_csv.exists():
-            alt_path = Path("data") / path_csv.name
-            if alt_path.exists():
-                path_csv = alt_path
+        SOURCES_DIR.mkdir(parents=True, exist_ok=True)
+        IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-        stem = path_csv.stem
-        if stem.startswith("temp_"):
-            stem = stem[len("temp_"):]
+        path_csv = (
+            resolve_existing_path(csv_filename)
+            if csv_filename
+            else SOURCES_DIR / "datos.csv"
+        )
+        if not path_csv.exists() and csv_content and csv_content.strip():
+            with open(path_csv, "w", encoding="utf-8") as f:
+                f.write(csv_content)
+            steps_log.append(f"CSV de origen guardado en: '{path_csv}'.")
 
-        # Rutas dinámicas basadas en el nombre del CSV procesado asegurando directorio 'data'
-        data_dir = Path("data")
-        data_dir.mkdir(parents=True, exist_ok=True)
+        stem = path_csv.stem.replace("temp_", "")
 
-        catalogs_file = data_dir / f"catalogs_{stem}.json"
-        data_records_file = data_dir / f"data_records_{stem}.json"
-
-        # Conexión HTTP hacia JUB
-        steps_log.append("[1/5] Conectando con la API REST de JUB...")
-        async with httpx.AsyncClient(base_url=JUB_URL, timeout=60.0) as client:
-            try:
-                ping_res = await client.get("/api/v2/health")
-                if ping_res.status_code >= 500:
-                    return json.dumps({"status": "error", "message": f"El servidor JUB en {JUB_URL} respondió con error interno."}, ensure_ascii=False)
-            except Exception as e:
-                return json.dumps({
-                    "status": "error",
-                    "message": f"No se pudo conectar a JUB en {JUB_URL}.",
-                    "detalles_tecnicos": str(e)
-                }, ensure_ascii=False)
-
-            steps_log.append("Conexión exitosa con JUB.")
-
-            # Autenticación
-            steps_log.append("[2/5] Autenticando en JUB...")
+        async with httpx.AsyncClient(base_url=JUB_URL, timeout=90.0) as client:
             token = None
-            for ep in ["/api/v2/users/auth", "/v2/auth/login", "/auth/login"]:
-                try:
-                    auth_res = await client.post(ep, json={"username": JUB_USER, "password": JUB_PASS})
-                    if auth_res.status_code in (200, 201):
-                        data = auth_res.json()
-                        token = data.get("access_token") or data.get("token") or data.get("accessToken")
-                        break
-                except Exception:
-                    continue
+            try:
+                auth_res = await client.post(
+                    "/api/v2/users/auth",
+                    json={"username": JUB_USER, "password": JUB_PASS},
+                )
+                if auth_res.status_code in (200, 201):
+                    data = auth_res.json()
+                    token = data.get("access_token") or data.get("token")
+            except Exception as e:
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": f"Error al conectar con la API JUB: {str(e)}",
+                    },
+                    ensure_ascii=False,
+                )
 
             headers = {"Authorization": f"Bearer {token}"} if token else {}
 
-            # Paso 3: Registro de Observatorio
-            steps_log.append("[3/5] Registrando Observatorio e ingiriendo Catálogos...")
-            obs_payload = {"observatory_id": observatory_id, "title": title, "description": description}
-            obs_res = await client.post("/api/v2/observatories", json=obs_payload, headers=headers)
+            steps_log.append("[1/6] Creando Observatorio v2 (POST /api/v2/observatories/setup)...")
+            setup_payload = {
+                "title": observatory_title,
+                "user_id": user_id,
+                "description": observatory_description,
+                "metadata": {
+                    "edition": edition,
+                    "country": country,
+                    "institution": institution,
+                },
+            }
+            
+            # <-- AGREGADO: Inyección de la URL de imagen al Observatorio
+            if image_url:
+                setup_payload["image_url"] = image_url
 
-            if obs_res.status_code in (400, 409) or _is_conflict(obs_res.status_code, obs_res.text):
-                if overwrite:
-                    put_res = await client.put(f"/api/v2/observatories/{observatory_id}", json=obs_payload, headers=headers)
-                    if put_res.status_code in (200, 201):
-                        steps_log.append(f"El observatorio '{observatory_id}' ya existía; se actualizó (overwrite=true).")
-                        resumen["observatorio"] = "ya existía — actualizado (overwrite)"
-                    else:
-                        resumen["observatorio"] = "ya existía — no se pudo actualizar"
-                        warnings.append(f"No se pudo actualizar el observatorio '{observatory_id}'.")
-                else:
-                    resumen["observatorio"] = "ya existía — sin cambios"
-                    warnings.append(f"El observatorio '{observatory_id}' ya estaba registrado en JUB.")
-            elif obs_res.status_code >= 400:
-                return json.dumps({
-                    "status": "error",
-                    "message": f"Error al registrar el observatorio (Código {obs_res.status_code}).",
-                    "detalles": obs_res.text
-                }, ensure_ascii=False, indent=2)
-            else:
-                resumen["observatorio"] = "creado"
-
-
-            if not catalogs_file.exists() or not data_records_file.exists():
-                steps_log.append("No se encontraron los archivos JSON en disco. Generándolos dinámicamente desde el CSV...")
-                
-                catalogos_generados = [
+            obs_res = await client.post(
+                "/api/v2/observatories/setup",
+                json=setup_payload,
+                headers=headers,
+            )
+            if obs_res.status_code not in (200, 201):
+                return json.dumps(
                     {
-                        "catalog_id": f"cat_spatial_{stem}",
-                        "name": f"Spatial Catalog - {stem}",
-                        "catalog_type": "SPATIAL",
-                        "items": []
+                        "status": "error",
+                        "message": f"Error al crear el observatorio ({obs_res.status_code}).",
+                        "detalles": obs_res.text,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            obs_data = obs_res.json()
+            observatory_id = obs_data.get("observatory_id")
+            task_id = obs_data.get("task_id")
+            resumen["observatorio"] = f"Creado (ID: {observatory_id})"
+
+            steps_log.append("[2/6] Creando Catálogos...")
+            spatial_items = []
+            temporal_items = []
+            spatial_seen = set()
+            temporal_seen = set()
+
+            reader = None
+            f_csv = None
+            if path_csv.exists():
+                f_csv = open(path_csv, encoding="utf-8")
+                reader = csv.DictReader(f_csv)
+            elif csv_content:
+                reader = csv.DictReader(io.StringIO(csv_content))
+
+            if reader:
+                for row in reader:
+                    muni = (
+                        row.get("municipio") or row.get("Municipio") or row.get("estado") or "General"
+                    )
+                    s_val = muni.upper().replace(" ", "_")
+                    if s_val not in spatial_seen:
+                        spatial_seen.add(s_val)
+                        spatial_items.append({
+                            "name": muni,
+                            "value": s_val,
+                            "code": len(spatial_seen),
+                            "value_type": "string",
+                            "aliases": [],
+                            "children": [],
+                        })
+
+                    anio = str(row.get("anio") or row.get("año") or "2024")
+                    t_val = f"Y{anio}"
+                    if t_val not in temporal_seen:
+                        temporal_seen.add(t_val)
+                        temporal_items.append({
+                            "name": anio,
+                            "value": t_val,
+                            "code": int(anio) if anio.isdigit() else 2024,
+                            "value_type": "datetime",
+                            "temporal_value": f"{anio}-01-01T00:00:00Z",
+                            "aliases": [],
+                            "children": [],
+                        })
+
+                if f_csv:
+                    f_csv.close()
+
+            catalogs_payload = {
+                "level": 0,
+                "catalogs": [
+                    {
+                        "name": f"Spatial - {observatory_title}",
+                        "value": "SPATIAL",
+                        "catalog_type": "spatial",
+                        "description": "Catálogo Geográfico",
+                        "items": spatial_items or [{
+                            "name": country,
+                            "value": country,
+                            "code": 1,
+                            "value_type": "string",
+                            "aliases": [],
+                            "children": [],
+                        }],
                     },
                     {
-                        "catalog_id": f"cat_interest_{stem}",
-                        "name": f"Interest Catalog - {stem}",
-                        "catalog_type": "INTEREST",
-                        "items": []
-                    }
-                ]
-                
-                registros_generados = []
-                spatial_items_seen = set()
-                
-                if path_csv.exists():
-                    with open(path_csv, encoding="utf-8") as f_csv:
-                        reader = csv.DictReader(f_csv)
-                        for row in reader:
-                            municipio = row.get("municipio") or row.get("Municipio") or "Desconocido"
-                            spatial_id = f"loc_{municipio.lower().replace(' ', '_')}"
-                            
-                            if spatial_id not in spatial_items_seen:
-                                spatial_items_seen.add(spatial_id)
-                                catalogos_generados[0]["items"].append({
-                                    "catalog_item_id": spatial_id,
-                                    "value": municipio,
-                                    "label": municipio
-                                })
-
-                            
-                            val_raw = row.get("valor") or row.get("emisiones") or 0
-                            try:
-                                val_parsed = float(val_raw)
-                            except (ValueError, TypeError):
-                                val_parsed = 0.0
-
-                            anio_raw = row.get("anio") or row.get("año") or start_year
-                            try:
-                                anio_parsed = int(anio_raw)
-                            except (ValueError, TypeError):
-                                anio_parsed = start_year
-
-                            registros_generados.append({
-                                "spatial_id": spatial_id,
-                                "value": val_parsed,
-                                "year": anio_parsed
-                            })
-                    
-                    with open(catalogs_file, "w", encoding="utf-8") as f_cat:
-                        json.dump(catalogos_generados, f_cat, indent=2, ensure_ascii=False)
-                    with open(data_records_file, "w", encoding="utf-8") as f_rec:
-                        json.dump(registros_generados, f_rec, indent=2, ensure_ascii=False)
-                    
-                    steps_log.append("¡Archivos JSON generados y guardados correctamente en disco!")
-                else:
-                    warnings.append(f"No se encontró el archivo CSV en '{path_csv}'. No se pudieron autogenerar los JSON.")
-
-            # INGESTA DE CATÁLOGOS
-            catalog_ids: List[str] = []
-            item_index: Dict[str, str] = {}
-            catalogs_created = 0
-            catalogs_reused = False
-
-            if catalogs_file.exists():
-                with open(catalogs_file, encoding="utf-8") as f:
-                    catalogs_data = json.load(f)
-
-                bulk_res = await client.post("/api/v2/catalogs/bulk", json=catalogs_data, headers=headers)
-
-                if bulk_res.status_code in (200, 201):
-                    bulk_json = bulk_res.json()
-                    if isinstance(bulk_json, dict):
-                        catalog_ids = bulk_json.get("catalog_ids", [])
-                    elif isinstance(bulk_json, list):
-                        catalog_ids = [c.get("catalog_id") or c.get("id") for c in bulk_json if isinstance(c, dict)]
-                    catalogs_created = len(catalog_ids)
-
-                    for cat_id, cat_dict in zip(catalog_ids, catalogs_data):
-                        cat_type = cat_dict.get("catalog_type", "INTEREST")
-                        level = CATALOG_LEVELS.get(cat_type, 2)
-                        await client.post(
-                            f"/api/v2/observatories/{observatory_id}/catalogs",
-                            json={"catalog_id": cat_id, "level": level},
-                            headers=headers,
-                        )
-                elif _is_conflict(bulk_res.status_code, bulk_res.text):
-                    steps_log.append(f"Aviso: Los catálogos para '{stem}' ya existían; se reutilizarán.")
-                    try:
-                        existing_res = await client.get(f"/api/v2/observatories/{observatory_id}/catalogs", headers=headers)
-                        if existing_res.status_code == 200:
-                            existing_json = existing_res.json()
-                            if isinstance(existing_json, list):
-                                catalog_ids = [
-                                    c.get("catalog_id") or c.get("id")
-                                    for c in existing_json
-                                    if isinstance(c, dict) and (c.get("catalog_id") or c.get("id"))
-                                ]
-                                catalogs_reused = bool(catalog_ids)
-                    except Exception:
-                        pass
-                else:
-                    warnings.append(f"No se pudieron registrar los catálogos (código {bulk_res.status_code}): {bulk_res.text[:200]}")
-
-                # Indexar ítems de los catálogos para mapeo rápido
-                for cat_id in catalog_ids:
-                    cat_res = await client.get(f"/api/v2/catalogs/{cat_id}", headers=headers)
-                    if cat_res.status_code == 200:
-                        for item in _flatten_items(cat_res.json().get("items", [])):
-                            val = item.get("value")
-                            item_id = item.get("catalog_item_id") or item.get("id")
-                            if val and item_id:
-                                item_index[val] = item_id
-
-                if catalogs_reused:
-                    resumen["catalogos"] = f"ya existían — se reutilizarán {len(catalog_ids)}"
-                elif catalogs_created:
-                    resumen["catalogos"] = f"creados {catalogs_created}"
-                else:
-                    resumen["catalogos"] = "sin catálogos disponibles"
-            else:
-                resumen["catalogos"] = "archivo de catálogos no encontrado"
-
-            # Paso 4: Registro de DataSource e Ingesta de Registros
-            steps_log.append("[4/5] Registrando DataSource e ingiriendo registros dinámicos...")
-
-            resolved_source_id = source_id.strip() if source_id else None
-            if not resolved_source_id:
-                list_res = await client.get("/api/v2/datasources", headers=headers)
-                if list_res.status_code == 200:
-                    for ds in list_res.json():
-                        if ds.get("name") == datasource_name:
-                            resolved_source_id = ds.get("source_id") or ds.get("id")
-                            break
-
-            if not resolved_source_id:
-                resolved_source_id = f"src_{stem}"
-
-            resolved_ds_description = datasource_description.strip() if datasource_description else f"DataSource para {title}"
-
-            ds_payload = {
-                "source_id": resolved_source_id,
-                "name": datasource_name,
-                "description": resolved_ds_description,
-                "format": "csv",
-                "connection_uri": f"file://{csv_filename}",
+                        "name": f"Temporal - {observatory_title}",
+                        "value": "TEMPORAL",
+                        "catalog_type": "temporal",
+                        "items": temporal_items or [{
+                            "name": edition,
+                            "value": f"Y{edition}",
+                            "code": 1,
+                            "value_type": "datetime",
+                            "temporal_value": f"{edition}-01-01T00:00:00Z",
+                            "aliases": [],
+                            "children": [],
+                        }],
+                    },
+                ],
             }
-            ds_res = await client.post("/api/v2/datasources", json=ds_payload, headers=headers)
-            if ds_res.status_code in (200, 201):
-                resumen["datasource"] = f"creado ({resolved_source_id})"
-            elif _is_conflict(ds_res.status_code, ds_res.text):
-                if overwrite:
-                    await client.put(f"/api/v2/datasources/{resolved_source_id}", json=ds_payload, headers=headers)
-                    resumen["datasource"] = f"ya existía — actualizado ({resolved_source_id})"
-                else:
-                    resumen["datasource"] = f"ya existía — reutilizado ({resolved_source_id})"
+
+            cat_res = await client.post(
+                f"/api/v2/observatories/{observatory_id}/catalogs/bulk",
+                json=catalogs_payload,
+                headers=headers,
+            )
+            if cat_res.status_code in (200, 201):
+                catalog_ids = cat_res.json().get("catalog_ids", [])
+                resumen["catalogos"] = f"{len(catalog_ids)} catálogos creados y vinculados"
             else:
-                resumen["datasource"] = f"error al registrar ({ds_res.status_code})"
+                warnings.append(f"Error cargando catálogos: {cat_res.text[:150]}")
 
-            records_count = 0
-            records_status = "no procesados"
-            if resolved_source_id and data_records_file.exists():
-                with open(data_records_file, encoding="utf-8") as f:
-                    records = json.load(f)
+            # -------------------------------------------------------------------------
+            # MAGIA RESTAURADA: Creación masiva de productos
+            # -------------------------------------------------------------------------
+            steps_log.append("[3/6] Registrando productos múltiples por rango de años...")
+            
+            products_list = []
+            
+            # Producto Principal
+            main_prod = {
+                "name": f"Dataset {product_name_base} {start_year}-{end_year}",
+                "description": f"Dataset completo de {product_description_base}",
+                "catalog_item_ids": []
+            }
+            if product_id_base:
+                main_prod["product_id"] = f"{product_id_base}-dataset"
+            products_list.append(main_prod)
 
-                for rec in records:
-                    rec["source_id"] = resolved_source_id
-                    rec["spatial_id"] = item_index.get(rec.get("spatial_id"), rec.get("spatial_id"))
-                    if "interest_ids" in rec:
-                        rec["interest_ids"] = [
-                            item_index.get(iid, iid) for iid in rec.get("interest_ids", [])
-                        ]
+            # Productos Anuales
+            for year in range(start_year, end_year + 1):
+                y_prod = {
+                    "name": f"{product_name_base} — {year}",
+                    "description": f"{product_description_base} - Periodo {year}",
+                    "catalog_item_ids": []
+                }
+                if product_id_base:
+                    y_prod["product_id"] = f"{product_id_base}-{year}"
+                products_list.append(y_prod)
 
-                ingest_res = await client.post(f"/api/v2/datasources/{resolved_source_id}/records", json=records, headers=headers)
-                if ingest_res.status_code in (200, 201):
-                    records_count = len(records)
-                    records_status = f"{records_count} registros ingeridos"
-                elif _is_conflict(ingest_res.status_code, ingest_res.text):
-                    records_status = "ya existían — no se reingresaron"
-                else:
-                    records_status = f"error al ingerir (código {ingest_res.status_code})"
+            products_payload = {"products": products_list}
+            
+            prod_res = await client.post(
+                f"/api/v2/observatories/{observatory_id}/products/bulk",
+                json=products_payload,
+                headers=headers,
+            )
+            created_products = []
+            if prod_res.status_code in (200, 201):
+                created_products = prod_res.json().get("products", [])
+                resumen["productos"] = f"{len(created_products)} productos creados"
             else:
-                records_status = "archivo de registros no encontrado"
+                warnings.append(f"Error al registrar productos: {prod_res.text[:150]}")
 
-            resumen["registros"] = records_status
+            steps_log.append("[4/6] Subiendo imagen o recurso al producto (POST /api/v2/products/{id}/upload)...")
+            if created_products and (product_file_filename or product_file_content):
+                # Se asocia el archivo al producto principal (el primero de la lista)
+                target_product_id = created_products[0].get("product_id") or created_products[0].get("id")
+                file_bytes = product_file_content
+                file_name = product_file_filename or "recurso.png"
 
-            # Guardar estado local (.state.json)
+                if not file_bytes and product_file_filename:
+                    res_path = resolve_existing_path(product_file_filename)
+                    if res_path.exists():
+                        with open(res_path, "rb") as f_bin:
+                            file_bytes = f_bin.read()
+                        file_name = res_path.name
+
+                if file_bytes:
+                    files = {"file": (file_name, file_bytes)}
+                    data_form = {"user_id": user_id}
+                    upload_res = await client.post(
+                        f"/api/v2/products/{target_product_id}/upload",
+                        data=data_form,
+                        files=files,
+                        headers=headers,
+                    )
+                    if upload_res.status_code in (200, 201, 202):
+                        resumen["archivos_recursos"] = f"Archivo '{file_name}' subido exitosamente"
+                    else:
+                        warnings.append(f"Error al subir archivo: {upload_res.text[:100]}")
+                else:
+                    resumen["archivos_recursos"] = "No se localizó el archivo físico especificado"
+            else:
+                resumen["archivos_recursos"] = "Sin archivos ni imágenes adjuntas"
+
+            steps_log.append("[5/6] Creando DataSource y registrando datos...")
+            ds_payload = {
+                "name": datasource_name,
+                "description": datasource_description,
+                "format": "csv",
+            }
+            if source_id:
+                ds_payload["source_id"] = source_id
+
+            ds_res = await client.post(
+                "/api/v2/datasources", json=ds_payload, headers=headers
+            )
+            created_source_id = (
+                ds_res.json().get("source_id")
+                if ds_res.status_code in (200, 201)
+                else (source_id or f"src_{stem}")
+            )
+            resumen["datasource"] = f"ID: {created_source_id}"
+
+            records_list = []
+            if path_csv.exists():
+                with open(path_csv, encoding="utf-8") as f:
+                    r_csv = csv.DictReader(f)
+                    for idx, row in enumerate(r_csv):
+                        val_raw = row.get("valor") or row.get("emisiones") or 0
+                        try:
+                            val_parsed = float(val_raw)
+                        except (ValueError, TypeError):
+                            val_parsed = 0.0
+
+                        anio_raw = str(row.get("anio") or row.get("año") or edition)
+                        muni_raw = (row.get("municipio") or row.get("Municipio") or country)
+
+                        records_list.append({
+                            "record_id": f"rec_{idx+1}",
+                            "spatial_id": muni_raw.upper().replace(" ", "_"),
+                            "temporal_id": f"{anio_raw}-01-01T00:00:00Z",
+                            "interest_ids": [],
+                            "numerical_interest_ids": {"VALOR": val_parsed},
+                            "raw_payload": row,
+                        })
+
+            if records_list:
+                rec_res = await client.post(
+                    f"/api/v2/datasources/{created_source_id}/records",
+                    json=records_list,
+                    headers=headers,
+                )
+                if rec_res.status_code in (200, 201):
+                    resumen["registros"] = f"{len(records_list)} registros subidos"
+                else:
+                    warnings.append(f"Error al ingerir registros: {rec_res.text[:150]}")
+
+            steps_log.append("[6/6] Finalizando tarea...")
+            complete_res = await client.post(
+                f"/api/v2/tasks/{task_id}/complete",
+                json={
+                    "success": True,
+                    "message": f"Aprovisionamiento completado para {observatory_title}",
+                },
+                headers=headers,
+            )
+
+            if complete_res.status_code == 200:
+                resumen["estado_final"] = "Observatorio Activo y Habilitado"
+            else:
+                warnings.append(f"No se pudo completar la tarea de activación: {complete_res.text[:150]}")
+
             state = {
                 "observatory_id": observatory_id,
-                "source_id": resolved_source_id,
-                "item_index": item_index,
-                "csv_filename": csv_filename
+                "task_id": task_id,
+                "source_id": created_source_id,
+                "csv_filename": str(path_csv),
             }
-            STATE_FILE.parent.mkdir(exist_ok=True)
             with open(STATE_FILE, "w", encoding="utf-8") as f:
                 json.dump(state, f, indent=2, ensure_ascii=False)
 
-            # Paso 5: Creación de Productos Múltiples
-            steps_log.append("[5/5] Registrando productos múltiples por rango de años...")
-
-            resolved_prod_id_base = product_id_base.strip() if product_id_base else resolved_source_id
-            resolved_prod_name_base = product_name_base.strip() if product_name_base else title
-            resolved_prod_desc_base = product_description_base.strip() if product_description_base else description
-
-            entrada_payload = {
-                "product_id": f"{resolved_prod_id_base}-dataset",
-                "name": f"Dataset {resolved_prod_name_base} {start_year}-{end_year}",
-                "description": f"Dataset completo de {resolved_prod_desc_base}",
-                "observatory_id": observatory_id,
-                "catalog_item_ids": []
-            }
-            await client.post("/api/v2/products", json=entrada_payload, headers=headers)
-
-            products_created: List[str] = []
-            products_existing: List[str] = []
-            products_failed: List[str] = []
-
-            for year in range(start_year, end_year + 1):
-                prod_id = f"{resolved_prod_id_base}-{year}"
-                prod_payload = {
-                    "product_id": prod_id,
-                    "name": f"{resolved_prod_name_base} — {year}",
-                    "description": f"{resolved_prod_desc_base} - Periodo {year}",
+            return json.dumps(
+                {
+                    "status": "success",
                     "observatory_id": observatory_id,
-                    "catalog_item_ids": []
-                }
-                p_res = await client.post("/api/v2/products", json=prod_payload, headers=headers)
-                if p_res.status_code in (200, 201):
-                    products_created.append(prod_id)
-                elif _is_conflict(p_res.status_code, p_res.text):
-                    products_existing.append(prod_id)
-                else:
-                    products_failed.append(prod_id)
-
-            resumen["productos"] = f"{len(products_created)} creados, {len(products_existing)} ya existían, {len(products_failed)} fallidos"
-            steps_log.append("Pipeline completado.")
-
-            return json.dumps({
-                "status": "success" if not products_failed else "success_con_errores_parciales",
-                "steps_completed": steps_log,
-                "resumen": resumen,
-                "advertencias": warnings,
-                "observatory_id": observatory_id,
-                "source_id": resolved_source_id,
-                "mensaje": "¡Indexación completa y datos guardados correctamente!",
-            }, ensure_ascii=False, indent=2)
+                    "task_id": task_id,
+                    "steps_completed": steps_log,
+                    "resumen": resumen,
+                    "advertencias": warnings,
+                    "mensaje": "¡Indexación completada correctamente bajo el esquema v2 de JUB con productos múltiples!",
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
