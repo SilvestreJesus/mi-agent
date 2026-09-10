@@ -1,7 +1,8 @@
 FROM python:3.12-slim
 WORKDIR /app
 
-RUN pip install --no-cache-dir "fastapi" "uvicorn[standard]" python-dotenv
+# Agregamos aiofiles a esta línea:
+RUN pip install --no-cache-dir "fastapi" "uvicorn[standard]" python-dotenv aiofiles
 
 # agent-framework y su soporte MCP siguen en preview (--pre), igual que en
 # jub-agent/agent/Dockerfile. Dos pines explícitos necesarios:

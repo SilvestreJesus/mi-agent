@@ -1,4 +1,4 @@
-"""Módulo de conversión de CSV a JSON JUB adaptado para registro modular en FastMCP."""
+"""Módulo de conversión universal de CSV a JSON JUB adaptado para registro modular en FastMCP."""
 
 from __future__ import annotations
 
@@ -8,38 +8,22 @@ import json
 import re
 import uuid
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Set, Tuple
 
 from fastmcp import FastMCP
 from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse
 
-# Columnas numéricas que son identificadores o metadatos
-EXCLUDE_NUMERICAL_KEYS = {
-    "ANIO",
-    "AÑO",
-    "YEAR",
-    "SUSTANCIA_GRUPO_IARC",
-    "ESTADO_CVE_ENT",
-    "MUNICIPIO_CVE_MUN",
-    "CVE_ENT",
-    "CVE_MUN",
-}
 
-
-
-def get_column_value(row: dict, candidates: list[str], default: str = "") -> str:
-    normalized_row = {k.lower().strip(): v for k, v in row.items()}
-    for col in candidates:
-        col_lower = col.lower().strip()
-        if col_lower in normalized_row and normalized_row[col_lower] is not None:
-            val = str(normalized_row[col_lower]).strip()
-            if val:
-                return val
-    return default
+def normalize_str(val: Any) -> str:
+    """Retorna una cadena limpia y normalizada sin espacios superfluos."""
+    if val is None:
+        return ""
+    return str(val).strip()
 
 
 def to_upper_snake(text: str) -> str:
+    """Convierte un texto a formato UPPER_SNAKE_CASE removiendo acentos y caracteres especiales."""
     if not text:
         return "DESCONOCIDO"
     trans = str.maketrans("áéíóúÁÉÍÓÚñÑüÜ", "aeiouAEIOUnNuU")
@@ -50,25 +34,22 @@ def to_upper_snake(text: str) -> str:
 
 
 def slugify_source_id(text: str) -> str:
-    """Genera un slug legible en minúsculas a partir de un texto (nombre de archivo, etc.)."""
+    """Genera un slug legible en minúsculas a partir de un texto."""
     slug = to_upper_snake(text).lower()
     return slug or uuid.uuid4().hex[:8]
 
 
 def default_source_id_from_path(path: Path) -> str:
-    """Deriva un source_id automático con prefijo 'src_' a partir del nombre del archivo CSV.
-
-    Ej: 'temp_emisiones_benceno.csv' -> 'src_emisiones_benceno'
-        'Reporte Q3 2026.csv'        -> 'src_reporte_q3_2026'
-    """
+    """Deriva un source_id automático con prefijo 'src_' a partir del archivo CSV."""
     stem = path.stem
     if stem.startswith("temp_"):
         stem = stem[len("temp_"):]
     return f"src_{slugify_source_id(stem)}"
 
 
-def alias(value: str, value_type: str, description: str = "") -> dict:
-    return {"value": value, "value_type": value_type, "description": description}
+def alias(value: str, value_type: str = "STRING", description: str = "") -> dict:
+    """Estructura para CatalogItemAlias."""
+    return {"value": str(value), "value_type": value_type, "description": description}
 
 
 def catalog_item(
@@ -81,7 +62,9 @@ def catalog_item(
     aliases: Optional[list[dict]] = None,
     children: Optional[list[dict]] = None,
 ) -> dict:
+    """Crea una entidad CatalogItem siguiendo la especificación JUB."""
     return {
+        "catalog_item_id": value,
         "name": name,
         "value": value,
         "code": code,
@@ -94,13 +77,16 @@ def catalog_item(
 
 
 def catalog(
+    catalog_id: str,
     name: str,
     value: str,
     catalog_type: str,
     description: str = "",
     items: Optional[list[dict]] = None,
 ) -> dict:
+    """Crea una entidad Catalog con el esquema JUB."""
     return {
+        "catalog_id": catalog_id,
         "name": name,
         "value": value,
         "catalog_type": catalog_type,
@@ -109,57 +95,107 @@ def catalog(
     }
 
 
+def find_column_by_candidates(headers: List[str], candidates: List[str]) -> Optional[str]:
+    """Busca en los encabezados una columna que coincida con la lista de candidatos (case-insensitive)."""
+    header_map = {h.lower().strip(): h for h in headers}
+    for cand in candidates:
+        cand_lower = cand.lower().strip()
+        if cand_lower in header_map:
+            return header_map[cand_lower]
+    return None
 
-def build_spatial_catalog(rows: list[dict]) -> dict:
+
+def is_numeric_value(val: Any) -> bool:
+    """Determina si un valor puede ser parseado como número flotante o entero."""
+    if val is None:
+        return False
+    s_val = str(val).strip()
+    if not s_val:
+        return False
+    try:
+        float(s_val)
+        return True
+    except ValueError:
+        return False
+
+
+def build_spatial_catalog_universal(rows: list[dict], headers: list[str]) -> tuple[dict, Optional[str], Optional[str], Optional[str]]:
+    """Identifica dinámicamente columnas geográficas y construye la jerarquía espacial."""
+    cve_ent_cand = ["estado_cve_ent", "cve_ent", "cve_estado", "enentidad", "cve_entidad", "entidad_cve"]
+    nom_ent_cand = ["estado_nombre", "estado", "nom_ent", "enmexico", "entidad", "nom_estado", "nombre_estado"]
+    cve_mun_cand = ["municipio_cve_mun", "cve_mun", "cve_municipio", "enmunicipio", "municipio_cve"]
+    nom_mun_cand = ["municipio_nombre", "municipio", "nom_mun", "nom_municipio", "nombre_municipio"]
+
+    col_cve_ent = find_column_by_candidates(headers, cve_ent_cand)
+    col_nom_ent = find_column_by_candidates(headers, nom_ent_cand)
+    col_cve_mun = find_column_by_candidates(headers, cve_mun_cand)
+    col_nom_mun = find_column_by_candidates(headers, nom_mun_cand)
+
     states: dict[str, dict] = {}
 
-    cve_ent_cols = ["estado_cve_ent", "cve_ent", "cve_estado", "enentidad"]
-    nom_ent_cols = ["estado_nombre", "estado", "nom_ent", "enmexico"]
-    cve_mun_cols = ["municipio_cve_mun", "cve_mun", "cve_municipio", "enmunicipio"]
-    nom_mun_cols = ["municipio_nombre", "municipio", "nom_mun"]
-
     for row in rows:
-        s_code = get_column_value(row, cve_ent_cols, "00").zfill(2)
-        s_name = get_column_value(row, nom_ent_cols, f"Estado {s_code}")
-        m_code = get_column_value(row, cve_mun_cols, "000").zfill(3)
-        m_name = get_column_value(row, nom_mun_cols, f"Municipio {m_code}")
+        s_code = normalize_str(row.get(col_cve_ent)) if col_cve_ent else ""
+        s_name = normalize_str(row.get(col_nom_ent)) if col_nom_ent else ""
+
+        if not s_code and not s_name:
+            continue
+
+        if not s_code:
+            s_code = to_upper_snake(s_name)
+        else:
+            s_code = s_code.zfill(2) if s_code.isdigit() else s_code
+
+        if not s_name:
+            s_name = f"Estado {s_code}"
+
+        m_code = normalize_str(row.get(col_cve_mun)) if col_cve_mun else ""
+        m_name = normalize_str(row.get(col_nom_mun)) if col_nom_mun else ""
+
+        if m_code or m_name:
+            if not m_code:
+                m_code = to_upper_snake(m_name)
+            else:
+                m_code = m_code.zfill(3) if m_code.isdigit() else m_code
+            if not m_name:
+                m_name = f"Municipio {m_code}"
 
         if s_code not in states:
-            states[s_code] = {"name": s_name, "municipios": {}}
-        states[s_code]["municipios"][m_code] = m_name
+            states[s_code] = {"name": s_name, "code": s_code, "municipios": {}}
+
+        if m_code or m_name:
+            states[s_code]["municipios"][m_code] = m_name
 
     state_items = []
-    for s_code, s_data in sorted(states.items(), key=lambda x: int(x[0]) if x[0].isdigit() else 0):
+    for s_code, s_data in sorted(states.items(), key=lambda x: str(x[0])):
         s_name = s_data["name"]
         mun_items = []
-        for m_code, m_name in sorted(s_data["municipios"].items(), key=lambda x: int(x[0]) if x[0].isdigit() else 0):
+        for m_code, m_name in sorted(s_data["municipios"].items(), key=lambda x: str(x[0])):
+            mun_id = f"MX_{s_code}_{m_code}" if s_code.isdigit() and m_code.isdigit() else f"SPATIAL_{s_code}_{m_code}"
             mun_items.append(
                 catalog_item(
                     name=m_name,
-                    value=f"MX_{s_code}_{m_code}",
+                    value=mun_id,
                     code=int(m_code) if m_code.isdigit() else 0,
                     value_type="STRING",
-                    description=f"Municipio de {m_name}, {s_name}",
-                    temporal_value=None,
+                    description=f"Municipio/Demarcación: {m_name}, {s_name}",
                     aliases=[
-                        alias(m_code, "NUMBER", "Clave INEGI del municipio"),
+                        alias(m_code, "NUMBER" if m_code.isdigit() else "STRING", "Clave o identificador de municipio"),
                         alias(m_name, "STRING", "Nombre oficial"),
                         alias(to_upper_snake(m_name), "STRING", "Nombre en UPPER_SNAKE"),
                     ],
-                    children=[],
                 )
             )
 
+        state_id = f"MX_{s_code}" if s_code.isdigit() else f"SPATIAL_{s_code}"
         state_items.append(
             catalog_item(
                 name=s_name,
-                value=f"MX_{s_code}",
+                value=state_id,
                 code=int(s_code) if s_code.isdigit() else 0,
                 value_type="STRING",
-                description=f"Estado de {s_name}, México",
-                temporal_value=None,
+                description=f"Estado/Entidad: {s_name}",
                 aliases=[
-                    alias(s_code, "NUMBER", "Clave INEGI del estado"),
+                    alias(s_code, "NUMBER" if s_code.isdigit() else "STRING", "Clave o código de estado"),
                     alias(s_name, "STRING", "Nombre oficial"),
                     alias(to_upper_snake(s_name), "STRING", "Nombre en UPPER_SNAKE"),
                 ],
@@ -167,144 +203,179 @@ def build_spatial_catalog(rows: list[dict]) -> dict:
             )
         )
 
-    mexico = catalog_item(
-        name="México",
-        value="MX",
-        code=0,
-        value_type="STRING",
-        description="República Mexicana",
-        temporal_value=None,
-        aliases=[
-            alias("MEX", "STRING", "Código ISO 3166-1 alpha-3"),
-            alias("484", "NUMBER", "Código numérico ISO 3166-1"),
-        ],
-        children=state_items,
-    )
+    if not state_items:
+        default_item = catalog_item(
+            name="Ubicación Global/Nacional",
+            value="SPATIAL_DEFAULT",
+            code=0,
+            description="Ubicación no especificada explícitamente en las columnas del dataset",
+        )
+        cat_spatial = catalog("cat_spatial", "Dimensión Espacial — General", "SPATIAL_GENERIC", "spatial", "Dimensión espacial por defecto", [default_item])
+    else:
+        root_country = catalog_item(
+            name="México",
+            value="MX",
+            code=0,
+            description="República Mexicana",
+            aliases=[alias("MEX", "STRING", "Código ISO 3166-1 alpha-3"), alias("484", "NUMBER", "Código numérico ISO")],
+            children=state_items,
+        )
+        cat_spatial = catalog("cat_spatial", "Dimensión Espacial — Jerarquía Geográfica", "SPATIAL_MX", "spatial", "Jerarquía de áreas geográficas", [root_country])
 
-    return catalog(
-        name="Dimensión Espacial — México",
-        value="SPATIAL_MX",
-        catalog_type="SPATIAL",
-        description="Jerarquía geográfica: País → Estado → Municipio (fuente: INEGI)",
-        items=[mexico],
-    )
+    return cat_spatial, col_cve_ent or col_nom_ent, col_cve_mun or col_nom_mun, col_nom_ent or col_nom_mun
 
 
-def build_temporal_catalog(rows: list[dict]) -> dict:
-    year_cols = ["anio", "año", "year", "anios_reporte"]
-    years = set()
-    for row in rows:
-        val = get_column_value(row, year_cols)
-        if val.isdigit():
-            years.add(int(val))
+def build_temporal_catalog_universal(rows: list[dict], headers: list[str]) -> tuple[dict, Optional[str]]:
+    """Detecta automáticamente columnas temporales (año, fecha) y genera el catálogo temporal."""
+    year_cand = ["anio", "año", "year", "anios_reporte", "fecha", "date", "yfd"]
+    col_year = find_column_by_candidates(headers, year_cand)
+
+    detected_years: Set[int] = set()
+
+    if col_year:
+        for row in rows:
+            val = normalize_str(row.get(col_year))
+            match = re.search(r"\b(19\d\d|20\d\d)\b", val)
+            if match:
+                detected_years.add(int(match.group(1)))
+
+    if not detected_years:
+        current_y = datetime.datetime.now().year
+        detected_years.add(current_y)
 
     year_items = [
         catalog_item(
-            name=str(year),
-            value=f"Y{year}",
-            code=year,
+            name=str(yr),
+            value=f"Y{yr}",
+            code=yr,
             value_type="DATETIME",
-            temporal_value=datetime.datetime(year, 1, 1, tzinfo=datetime.timezone.utc).isoformat(),
-            description=f"Año de reporte {year}",
+            temporal_value=datetime.datetime(yr, 1, 1, tzinfo=datetime.timezone.utc).isoformat(),
+            description=f"Año de registro {yr}",
             aliases=[
-                alias(str(year), "NUMBER", "Año como entero"),
-                alias(f"AÑO_{year}", "STRING", "Etiqueta en español"),
-                alias(f"YEAR_{year}", "STRING", "Etiqueta en inglés"),
+                alias(str(yr), "NUMBER", "Año numérico"),
+                alias(f"ANO_{yr}", "STRING", "Etiqueta en español"),
+                alias(f"YEAR_{yr}", "STRING", "Etiqueta en inglés"),
             ],
         )
-        for year in sorted(years)
+        for yr in sorted(detected_years)
     ]
 
-    return catalog(
-        name="Dimensión Temporal — Años de Reporte",
-        value="TEMPORAL_ANIO",
-        catalog_type="TEMPORAL",
-        description="Años calendario presentes en los reportes",
-        items=year_items,
+    cat_temp = catalog(
+        "cat_temporal",
+        "Dimensión Temporal — Períodos de Registro",
+        "TEMPORAL_ANIO",
+        "temporal",
+        "Años y fechas presentes en el conjunto de datos",
+        year_items,
     )
+    return cat_temp, col_year
 
 
-def build_sustancia_catalog(rows: list[dict]) -> dict:
-    cas_cols = ["sustancia_cas", "cas"]
-    name_cols = ["sustancia_nombre", "sustancia"]
-    iarc_cols = ["sustancia_grupo_iarc", "iarc_group", "iarc_agent"]
+def build_interest_catalogs_universal(rows: list[dict], headers: list[str], excluded_cols: Set[str]) -> tuple[list[dict], List[str]]:
+    """Identifica dinámicamente columnas de interés categóricas y genera catálogos."""
+    categorical_cols = []
+    for h in headers:
+        if h in excluded_cols:
+            continue
+        col_lower = h.lower().strip()
+        if any(suffix in col_lower for suffix in ["cve", "code", "id", "lat", "lng", "utmx", "utmy", "_kg", "index"]):
+            continue
 
-    sustancias: dict[str, dict] = {}
-    for row in rows:
-        cas = get_column_value(row, cas_cols)
-        name = get_column_value(row, name_cols)
-        grupo = get_column_value(row, iarc_cols, "N/A")
+        non_empty_vals = [normalize_str(row.get(h)) for row in rows if normalize_str(row.get(h))]
+        if not non_empty_vals:
+            continue
 
-        if cas or name:
-            key = cas if cas else to_upper_snake(name)
-            if key not in sustancias:
-                sustancias[key] = {"name": name or key, "cas": cas or "SIN_CAS", "grupo_iarc": grupo}
+        numeric_count = sum(1 for v in non_empty_vals if is_numeric_value(v))
+        if numeric_count / len(non_empty_vals) < 0.6:
+            unique_vals = set(non_empty_vals)
+            if len(unique_vals) <= max(200, len(rows) * 0.5):
+                categorical_cols.append(h)
 
-    if not sustancias:
-        return catalog("Sustancias Químicas", "SUSTANCIA_RETC", "INTEREST", "Sin sustancias detectadas", [])
+    catalogs = []
+    for col in categorical_cols:
+        col_snake = to_upper_snake(col)
+        unique_vals = sorted(list(set(normalize_str(r.get(col)) for r in rows if normalize_str(r.get(col)))))
 
-    sust_items = [
-        catalog_item(
-            name=data["name"],
-            value=to_upper_snake(data["name"]),
-            code=i,
-            description=f"{data['name']} — CAS {data['cas']}, Grupo IARC {data['grupo_iarc']}",
-            aliases=[
-                alias(data["cas"], "STRING", "Número CAS"),
-                alias(f"IARC_{data['grupo_iarc']}", "STRING", "Clasificación IARC"),
-            ],
+        items = []
+        for idx, val in enumerate(unique_vals, start=1):
+            item_val = f"{col_snake}_{to_upper_snake(val)}"
+            items.append(
+                catalog_item(
+                    name=val,
+                    value=item_val,
+                    code=idx,
+                    value_type="STRING",
+                    description=f"Valor de interés de la variable '{col}': {val}",
+                    aliases=[alias(val, "STRING", "Valor original"), alias(to_upper_snake(val), "STRING", "Formato UPPER_SNAKE")],
+                )
+            )
+
+        cat_obj = catalog(
+            catalog_id=f"cat_interest_{col_snake.lower()}",
+            name=f"Dimensión de Interés — {col}",
+            value=f"INTEREST_{col_snake}",
+            catalog_type="interest",
+            description=f"Catálogo de categorías extraídas de la columna '{col}'",
+            items=items,
         )
-        for i, (key, data) in enumerate(sorted(sustancias.items()), start=1)
-    ]
+        catalogs.append(cat_obj)
 
-    return catalog(
-        name="Sustancias Químicas",
-        value="SUSTANCIA_RETC",
-        catalog_type="INTEREST",
-        description="Sustancias químicas reportadas con CAS y grupo IARC",
-        items=sust_items,
-    )
+    return catalogs, categorical_cols
 
 
-def row_to_data_record(row: dict, source_id: str) -> dict:
-    s_code = get_column_value(row, ["estado_cve_ent", "cve_ent", "cve_estado"], "00").zfill(2)
-    m_code = get_column_value(row, ["municipio_cve_mun", "cve_mun", "cve_municipio"], "000").zfill(3)
-    spatial_id = f"MX_{s_code}_{m_code}"
+def row_to_data_record_universal(
+    row: dict,
+    headers: list[str],
+    source_id: str,
+    col_ent: Optional[str],
+    col_mun: Optional[str],
+    col_year: Optional[str],
+    interest_cols: List[str],
+) -> dict:
+    """Convierte una fila del CSV a un DataRecord alineado al esquema JUB."""
+    s_val = normalize_str(row.get(col_ent)) if col_ent else ""
+    m_val = normalize_str(row.get(col_mun)) if col_mun else ""
 
-    year_str = get_column_value(row, ["anio", "año", "year"], "2000")
-    year = int(year_str) if year_str.isdigit() else 2000
-    temporal_id = datetime.datetime(year, 1, 1, tzinfo=datetime.timezone.utc).isoformat()
+    if s_val or m_val:
+        s_code = s_val.zfill(2) if s_val.isdigit() else to_upper_snake(s_val)
+        m_code = m_val.zfill(3) if m_val.isdigit() else to_upper_snake(m_val)
+        if s_val.isdigit() and m_val.isdigit():
+            spatial_id = f"MX_{s_code}_{m_code}"
+        elif s_val.isdigit() and not m_val:
+            spatial_id = f"MX_{s_code}"
+        else:
+            spatial_id = f"SPATIAL_{s_code}_{m_code}".strip("_")
+    else:
+        spatial_id = "SPATIAL_DEFAULT"
+
+    year_val = normalize_str(row.get(col_year)) if col_year else ""
+    match = re.search(r"\b(19\d\d|20\d\d)\b", year_val) if year_val else None
+    yr = int(match.group(1)) if match else datetime.datetime.now().year
+    temporal_id = datetime.datetime(yr, 1, 1, tzinfo=datetime.timezone.utc).isoformat()
 
     interest_ids = []
-    sustancia_nom = get_column_value(row, ["sustancia_nombre", "sustancia"])
-    if sustancia_nom:
-        interest_ids.append(to_upper_snake(sustancia_nom))
+    for col in interest_cols:
+        val = normalize_str(row.get(col))
+        if val:
+            item_id = f"{to_upper_snake(col)}_{to_upper_snake(val)}"
+            interest_ids.append(item_id)
 
-    cas = get_column_value(row, ["sustancia_cas", "cas"])
-    if cas:
-        interest_ids.append(f"CAS_{cas.replace(' ', '_')}")
-
-    iarc = get_column_value(row, ["sustancia_grupo_iarc", "iarc_group"])
-    if iarc:
-        interest_ids.append(f"IARC_{iarc}")
-
-    numerical = {}
+    numerical_interest_ids = {}
     for col, val in row.items():
-        if val is None or str(val).strip() == "":
+        if val is None:
+            continue
+        s_val = normalize_str(val)
+        if not s_val:
             continue
 
-        col_snake = to_upper_snake(col)
-        if col_snake in EXCLUDE_NUMERICAL_KEYS:
-            continue
+        if is_numeric_value(s_val):
+            col_lower = col.lower().strip()
+            if any(k in col_lower for k in ["_id", "cve_", "cve", "code", "lat", "lng", "utmx", "utmy"]):
+                continue
+            col_snake = to_upper_snake(col)
+            numerical_interest_ids[col_snake] = float(s_val)
 
-        try:
-            num_val = float(val)
-            if not any(col.lower().endswith(suffix) for suffix in ["_id", "_cve", "cve_ent", "cve_mun", "code"]):
-                numerical[col_snake] = num_val
-        except ValueError:
-            pass
-
-    rec_id = row.get("_id") or f"rec_{uuid.uuid4().hex[:10]}"
+    rec_id = row.get("_id") or row.get("id") or f"rec_{uuid.uuid4().hex[:12]}"
 
     return {
         "record_id": str(rec_id),
@@ -312,14 +383,12 @@ def row_to_data_record(row: dict, source_id: str) -> dict:
         "spatial_id": spatial_id,
         "temporal_id": temporal_id,
         "interest_ids": interest_ids,
-        "numerical_interest_ids": numerical,
+        "numerical_interest_ids": numerical_interest_ids,
         "raw_payload": dict(row),
     }
 
 
-
 def _get_dirs() -> tuple[Path, Path]:
-    """Devuelve (sources_dir, data_dir), creándolos si no existen."""
     base_app_dir = Path(__file__).resolve().parent.parent
     sources_dir = base_app_dir / "sources"
     data_dir = base_app_dir / "data"
@@ -328,8 +397,23 @@ def _get_dirs() -> tuple[Path, Path]:
     return sources_dir, data_dir
 
 
+def _resolve_input_csv(csv_path: str, sources_dir: Path) -> Path:
+    """Resuelve la ruta real del CSV buscando en sources/ si la ruta dada no existe."""
+    cand = Path(csv_path)
+    if cand.exists():
+        return cand
+
+    filename = cand.name
+    clean_name = filename.replace("temp_", "") if filename.startswith("temp_") else filename
+
+    for f in [sources_dir / filename, sources_dir / clean_name]:
+        if f.exists():
+            return f
+
+    raise FileNotFoundError(f"No se encontró el archivo CSV en la ruta original ni en '{sources_dir}/'.")
+
+
 def _safe_data_file(data_dir: Path, filename: str) -> Optional[Path]:
-    """Resuelve `filename` dentro de data_dir, evitando path traversal. None si no es válido."""
     if not filename or "/" in filename or "\\" in filename or ".." in filename:
         return None
     candidate = (data_dir / filename).resolve()
@@ -347,22 +431,21 @@ def _listar_json(data_dir: Path, source_id_filtro: Optional[str] = None) -> list
     return archivos
 
 
-
 def register(mcp: FastMCP) -> None:
-    """Registra las herramientas de conversión CSV dentro del servidor FastMCP principal."""
+    """Registra las herramientas de conversión CSV universal dentro del servidor FastMCP principal."""
 
     @mcp.tool()
     async def analizar_csv(csv_path: str) -> str:
-        """Analiza la estructura básica de un archivo CSV y retorna sus columnas."""
-        path = Path(csv_path)
-        if not path.exists():
-            raise FileNotFoundError(f"El archivo CSV no existe en la ruta especificada: {csv_path}")
+        """Analiza la estructura básica de cualquier archivo CSV y retorna sus columnas e inferencia de tipos."""
+        sources_dir, _ = _get_dirs()
+        path = _resolve_input_csv(csv_path, sources_dir)
 
         with open(path, newline="", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             headers = reader.fieldnames or []
-            row_count = sum(1 for _ in reader)
+            rows = list(reader)
 
+        row_count = len(rows)
         headers_fmt = "\n  - ".join(headers)
         return (
             f"✓ Análisis de '{path.name}':\n"
@@ -376,87 +459,62 @@ def register(mcp: FastMCP) -> None:
         csv_path: str,
         source_id: Optional[str] = None,
     ) -> str:
-        """Convierte dinámicamente cualquier archivo CSV ubicado en 'sources' al formato JSON en la carpeta 'data'.
-
-        Genera SIEMPRE dos archivos, con nombres derivados del archivo CSV (no personalizables):
-        'catalogs_<nombre>.json' y 'data_records_<nombre>.json'.
-
-        Args:
-            csv_path: Ruta del archivo CSV.
-            source_id: Identificador para este origen de datos (ej. src_benceno2026). Es OPCIONAL:
-                si no se proporciona, se genera automáticamente con el prefijo 'src_' a partir del
-                nombre del archivo (ej. 'emisiones_benceno.csv' -> 'src_emisiones_benceno'). No es
-                necesario detenerse a pedírselo al usuario.
         """
-        path = Path(csv_path)
-
+        Convierte dinámicamente cualquier archivo CSV al formato JSON JUB en la carpeta 'data/'.
+        Genera 'catalogs_<nombre>.json' y 'data_records_<nombre>.json'.
+        """
         sources_dir, data_dir = _get_dirs()
+        path = _resolve_input_csv(csv_path, sources_dir)
 
-        target_csv_path = path
-        if not path.exists() or "temp_" in path.name:
-            alt_sources = sources_dir / path.name.replace("temp_", "")
-            if alt_sources.exists():
-                target_csv_path = alt_sources
-            elif path.exists():
-                target_csv_path = sources_dir / path.name.replace("temp_", "")
-                with open(path, "rb") as src_f, open(target_csv_path, "wb") as dst_f:
-                    dst_f.write(src_f.read())
-            else:
-                raise FileNotFoundError(f"No se encontró el archivo CSV en la ruta: {csv_path}")
-
-        path = target_csv_path
-
-        # Generar automáticamente el source_id si el usuario/agente no proporcionó uno
         if not source_id or not source_id.strip():
             source_id = default_source_id_from_path(path)
         else:
             source_id = source_id.strip()
 
-        # Nombres de salida SIEMPRE derivados del archivo CSV (no configurables desde fuera,
-        # así se evita que el modelo sobrescriba archivos previos con nombres genéricos).
-        cat_out = data_dir / f"catalogs_{path.stem}.json"
-        rec_out = data_dir / f"data_records_{path.stem}.json"
+        clean_stem = path.stem.replace("temp_", "") if path.stem.startswith("temp_") else path.stem
+
+        cat_out = data_dir / f"catalogs_{clean_stem}.json"
+        rec_out = data_dir / f"data_records_{clean_stem}.json"
 
         with open(path, newline="", encoding="utf-8-sig") as f:
-            rows = list(csv.DictReader(f))
+            reader = csv.DictReader(f)
+            headers = reader.fieldnames or []
+            rows = list(reader)
 
-        if not rows:
-            raise ValueError("El archivo CSV está vacío o no se pudo procesar la cabecera.")
+        if not rows or not headers:
+            raise ValueError("El archivo CSV está vacío o no tiene encabezados válidos.")
 
-        catalogs = [
-            build_spatial_catalog(rows),
-            build_temporal_catalog(rows),
-            build_sustancia_catalog(rows),
-        ]
+        cat_spatial, col_ent, col_mun, _ = build_spatial_catalog_universal(rows, headers)
+        cat_temporal, col_year = build_temporal_catalog_universal(rows, headers)
+
+        excluded_cols = set(filter(None, [col_ent, col_mun, col_year]))
+        cat_interests, interest_cols = build_interest_catalogs_universal(rows, headers, excluded_cols)
+
+        all_catalogs = [cat_spatial, cat_temporal] + cat_interests
 
         with open(cat_out, "w", encoding="utf-8") as f:
-            json.dump(catalogs, f, ensure_ascii=False, indent=2)
+            json.dump(all_catalogs, f, ensure_ascii=False, indent=2)
 
-        data_records = [row_to_data_record(r, source_id) for r in rows]
+        data_records = [
+            row_to_data_record_universal(r, headers, source_id, col_ent, col_mun, col_year, interest_cols)
+            for r in rows
+        ]
 
         with open(rec_out, "w", encoding="utf-8") as f:
             json.dump(data_records, f, ensure_ascii=False, indent=2)
 
         return (
-            f"✓ Procesamiento exitoso:\n"
-            f"• Archivo fuente guardado/leído en: {path.resolve()}\n"
-            f"• Source ID asignado: '{source_id}'\n"
-            f"• Archivo de catálogos: {cat_out.name}\n"
-            f"• Archivo de registros: {rec_out.name}\n"
-            f"• Total de registros: {len(data_records)}"
+            f"✓ Conversión Universal Exitosa:\n"
+            f"• Archivo procesado: {path.name}\n"
+            f"• Source ID: '{source_id}'\n"
+            f"• Catálogos generados ({len(all_catalogs)}): {cat_out.name}\n"
+            f"• Registros generados: {rec_out.name} ({len(data_records)} filas)\n"
+            f"• Columnas de Interés detectadas: {', '.join(interest_cols) if interest_cols else 'Ninguna (todas numéricas/id)'}"
         )
 
     @mcp.tool()
     async def listar_archivos_generados(source_id: Optional[str] = None) -> str:
-        """Lista los archivos JSON (catálogos y registros) generados y disponibles para descargar.
-
-        Úsala cuando el usuario pida ver, listar o descargar los JSON que se generaron.
-        SIEMPRE debe listar TODOS los archivos que coincidan (normalmente son dos por cada
-        conversión: uno de catálogos y otro de registros), no solo uno.
-
-        Args:
-            source_id: Opcional. Si se indica, filtra solo los archivos relacionados con ese origen.
-        """
+        """Lista los archivos JSON (catálogos y registros) generados en la carpeta data/."""
         _, data_dir = _get_dirs()
         archivos = _listar_json(data_dir, source_id)
 
@@ -471,7 +529,6 @@ def register(mcp: FastMCP) -> None:
         for a in archivos:
             lineas.append(f"- {a.name}")
         return "\n".join(lineas)
-
 
     @mcp.custom_route("/files", methods=["GET"])
     async def listar_archivos_http(request: Request):
@@ -498,7 +555,3 @@ def register(mcp: FastMCP) -> None:
             media_type="application/json",
             filename=file_path.name,
         )
-
-
-
-    

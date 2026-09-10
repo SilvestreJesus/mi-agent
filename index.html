@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JUB — Agente </title>
+  <title>JUB — Agente</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9L12 3z' fill='none' stroke='%23d6a348' stroke-width='1.8' stroke-linejoin='round'/%3E%3Ccircle cx='12' cy='12' r='2.2' fill='%23d6a348'/%3E%3C/svg%3E">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,7 +17,6 @@
 <body class="flex h-screen">
 
   <aside id="sidebar" class="sidebar flex flex-col shrink-0 h-full relative">
-
     <div class="sidebar-rail">
       <button onclick="toggleSidebar()" class="rail-btn" title="Mostrar menú">
         <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -42,7 +41,6 @@
     </div>
 
     <div class="sidebar-inner">
-
       <div class="sidebar-topbar">
         <span class="brand-word">
           <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="brand-icon" style="margin-right:8px">
@@ -86,7 +84,6 @@
   </aside>
 
   <main class="main flex-1 flex flex-col h-full relative min-w-0">
-
     <header class="topbar shrink-0 flex items-center justify-end px-4 md:px-6">
       <div class="agent-pill flex items-center gap-2 px-3 py-1.5">
         <span id="header-dot" class="status-dot ok"></span>
@@ -96,105 +93,43 @@
 
     <section id="chat-container" class="flex-1 overflow-y-auto px-3 md:px-6 pb-56">
       <div id="welcome" class="chat welcome fade">
-
         <div class="flex flex-col items-center text-center">
           <h1 class="welcome-title text-3xl md:text-4xl font-semibold max-w-2xl">
             ¿En qué puedo ayudarte?
           </h1>
-
           <p class="mt-4 text-sm md:text-[15px] leading-7 text-[color:var(--muted)] max-w-xl">
             Realiza consultas sobre tus datos, catálogos y procesos de análisis.
             Escribe una instrucción en lenguaje natural y el agente se encargará del proceso.
           </p>
         </div>
-        <div class="suggestions-grid grid grid-cols-1 md:grid-cols-2 gap-3 mt-10 max-w-2xl mx-auto">
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Convierte el archivo adjunto a JSON y dime qué ID le asignaste.')">
-            <span class="suggestion-icon">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M7 4.5h7l4 4v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z"/><path stroke-width="1.7" stroke-linecap="round" d="M9.5 13.5h5M9.5 16.5h3"/></svg>
-            </span>
-            <span>
-            <div class="text-sm font-medium mb-1">Convertir CSV a JSON</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Sube un CSV y genera automáticamente sus catálogos y registros en JSON.</div>
-            </span>
-        </button>
-
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Muéstrame los archivos JSON que se han generado hasta ahora.')">
-            <span class="suggestion-icon">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="2.6" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M5 6v12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6M5 12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6"/></svg>
-            </span>
-            <span>
-            <div class="text-sm font-medium mb-1">Ver archivos generados</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Lista los catálogos y registros JSON disponibles y sus enlaces de descarga.</div>
-            </span>
-        </button>
-
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Indexa en el observatorio los JSON que acabas de convertir.')">
-            <span class="suggestion-icon">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M4.5 12c1.8-4.2 5-6.3 7.5-6.3s5.7 2.1 7.5 6.3c-1.8 4.2-5 6.3-7.5 6.3S6.3 16.2 4.5 12Z"/></svg>
-            </span>
-            <span>
-            <div class="text-sm font-medium mb-1">Indexar en el Observatorio</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Registra los catálogos convertidos como un Observatorio en JUB.</div>
-            </span>
-        </button>
-
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Ingresa los registros de ese origen al DataSource de JUB.')">
-            <span class="suggestion-icon">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M20 7 12 3 4 7v10l8 4 8-4V7Z"/><path stroke-width="1.7" stroke-linecap="round" d="M4 7l8 4 8-4M12 11v10"/></svg>
-            </span>
-            <span>
-            <div class="text-sm font-medium mb-1">Ingresar a DataSource</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Sube los registros del origen ya indexado a un DataSource de JUB.</div>
-            </span>
-        </button>
-
-
-        <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Convierte este archivo a JSON con el id: src_benceno_slp e indexa en JUB.\n\nobservatory_id: src_slalsa\ntitle: Benceno RETC\ndescription: Registro de emisiones de benceno por municipio reportadas al RETC.\ndatasource_name: DataSource Emisiones Benceno SLP\ndatasource_description: DataSource con las emisiones de benceno reportadas al RETC en SLP\nproduct_id_base: prod-benceno-slp\nproduct_name_base: Benceno RETC\nproduct_description_base: Emisiones de benceno reportadas al RETC\nstart_year: 2004\nend_year: 2014')">
-          <span class="suggestion-icon">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg>
-          </span>
-          <span>
-            <div class="text-sm font-medium mb-1">Indexar completo (con ID personalizado)</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Rellena el ejemplo con tu propio ID y parámetros, y ejecuta el flujo completo de indexación en JUB.</div>
-          </span>
-        </button>
-        </div>
+        <!-- SUGGESTIONS_HTML se inyectará aquí dinámicamente -->
       </div>
     </section>
 
     <div class="composer-wrap">
       <div class="composer-area">
         <form id="chat-form" onsubmit="enviarMensaje(event)" class="composer flex flex-col">
-
-        <div id="file-preview-container" class="hidden">
-            <div class="file-chip">
-              <span class="file-chip-icon">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m9 18-6-6 6-6M15 6l6 6-6 6"/></svg>
-              </span>
-              <span class="file-chip-info">
-                <span id="file-name" class="file-chip-name"></span>
-                <span class="file-chip-type">Archivo</span>
-              </span>
-              <button type="button" onclick="quitarArchivo()" class="file-chip-remove" aria-label="Quitar archivo">
-                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
-              </button>
-            </div>
+        
+        <!-- Contenedor flex para múltiples archivos -->
+        <div id="file-preview-container" class="hidden flex-wrap gap-2 px-3 pt-2">
+            <!-- Los chips de archivo se inyectarán aquí -->
         </div>
 
         <textarea
             id="user-input"
             rows="1"
-            placeholder="Pregunta a JUB o adjunta un CSV..."
+            placeholder="Pregunta a JUB o adjunta archivos..."
             autocomplete="off"
             aria-label="Escribe tu consulta"
         ></textarea>
 
         <div class="flex items-center justify-between px-3 pb-3 pt-1">
-            <label class="cursor-pointer p-2 text-[color:var(--muted)] hover:text-[color:var(--text)] transition" title="Adjuntar CSV">
+            <label class="cursor-pointer p-2 text-[color:var(--muted)] hover:text-[color:var(--text)] transition" title="Adjuntar CSV o Imágenes">
             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.414 6.586a6 6 0 108.486 8.486L20.5 13"/>
             </svg>
-            <input type="file" id="csv-file-input" accept=".csv" class="hidden" onchange="manejarSeleccionArchivo(event)">
+            <!-- Acepta csv e imágenes, con selección múltiple -->
+            <input type="file" id="file-input" accept=".csv, image/*" multiple class="hidden" onchange="manejarSeleccionArchivo(event)">
             </label>
 
             <button id="send-btn" type="submit" class="send-btn" aria-label="Enviar consulta">
@@ -248,9 +183,9 @@
     let chatToDeleteId = null;
     let currentSessionId = null; 
 
-const SUGGESTIONS_HTML = `
+    const SUGGESTIONS_HTML = `
       <div class="suggestions-grid grid grid-cols-1 md:grid-cols-2 gap-3 mt-10 max-w-2xl mx-auto">
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Convierte el archivo adjunto a JSON y dime qué ID le asignaste.')">
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Convierte el archivo CSV adjunto a formato JSON.')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M7 4.5h7l4 4v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z"/><path stroke-width="1.7" stroke-linecap="round" d="M9.5 13.5h5M9.5 16.5h3"/></svg>
           </span>
@@ -290,17 +225,17 @@ const SUGGESTIONS_HTML = `
           </span>
         </button>
 
-        
-        <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Convierte este archivo a JSON con el id: src_benceno_slp e indexa en JUB.\n\nobservatory_id: src_slalsa\ntitle: Benceno RETC\ndescription: Registro de emisiones de benceno por municipio reportadas al RETC.\ndatasource_name: DataSource Emisiones Benceno SLP\ndatasource_description: DataSource con las emisiones de benceno reportadas al RETC en SLP\nproduct_id_base: prod-benceno-slp\nproduct_name_base: Benceno RETC\nproduct_description_base: Emisiones de benceno reportadas al RETC\nstart_year: 2004\nend_year: 2014')">
+        <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Indexa el archivo adjunto en JUB con los siguientes datos:\\n\\nobservatory_title: Benceno RETC\\nobservatory_description: Registro de emisiones de benceno por municipio reportadas al RETC.\\ninstitution: SEMARNAT\\nedition: 2024\\ncountry: México\\nproduct_name: Dataset Benceno RETC\\nproduct_description: Dataset con las emisiones reportadas.\\ndatasource_name: Fuente Benceno SLP\\ndatasource_description: Datos oficiales del registro.')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg>
           </span>
           <span>
-            <div class="text-sm font-medium mb-1">Indexar completo (con ID personalizado)</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Rellena el ejemplo con tu propio ID y parámetros, y ejecuta el flujo completo de indexación en JUB.</div>
+            <div class="text-sm font-medium mb-1">Indexar completo (Pipeline v2)</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Ejecuta el pipeline integral rellenando automáticamente los parámetros obligatorios.</div>
           </span>
         </button>
       </div>`;
+
     /* ---------- Tema ---------- */
     function applyTheme(theme) {
       document.documentElement.classList.toggle("light", theme === "light");
@@ -431,22 +366,57 @@ const SUGGESTIONS_HTML = `
       input.focus();
     }
 
-    /* ---------- Adjunto y Archivo ---------- */
-    let archivoAdjunto = null;
+    /* ---------- Archivos Adjuntos (Múltiples) ---------- */
+    let archivosAdjuntos = [];
 
     function manejarSeleccionArchivo(event) {
-      const file = event.target.files[0];
-      if (file) {
-        archivoAdjunto = file;
-        document.getElementById("file-name").textContent = file.name;
-        document.getElementById("file-preview-container").classList.remove("hidden");
+      const files = Array.from(event.target.files);
+      if (files.length > 0) {
+        archivosAdjuntos = archivosAdjuntos.concat(files);
+        renderizarArchivos();
       }
+      event.target.value = ""; // Limpiar input para permitir seleccionar el mismo archivo de nuevo
     }
 
-    function quitarArchivo() {
-      archivoAdjunto = null;
-      document.getElementById("csv-file-input").value = "";
-      document.getElementById("file-preview-container").classList.add("hidden");
+    function renderizarArchivos() {
+      const container = document.getElementById("file-preview-container");
+      container.innerHTML = "";
+      
+      if (archivosAdjuntos.length === 0) {
+        container.classList.add("hidden");
+        container.classList.remove("flex");
+        return;
+      }
+      
+      container.classList.remove("hidden");
+      container.classList.add("flex");
+      
+      archivosAdjuntos.forEach((file, index) => {
+        const esImagen = file.type.startsWith("image/");
+        
+        // Icono dependiendo del tipo
+        const iconSvg = esImagen 
+          ? `<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke-width="2"/><circle cx="8.5" cy="8.5" r="1.5" stroke-width="2"/><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m21 15-5-5L5 21"/></svg>`
+          : `<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m9 18-6-6 6-6M15 6l6 6-6 6"/></svg>`;
+
+        container.insertAdjacentHTML("beforeend", `
+          <div class="file-chip">
+            <span class="file-chip-icon">${iconSvg}</span>
+            <span class="file-chip-info">
+              <span class="file-chip-name">${escapeHtml(file.name)}</span>
+              <span class="file-chip-type">${esImagen ? 'Imagen' : 'Archivo'}</span>
+            </span>
+            <button type="button" onclick="quitarArchivo(${index})" class="file-chip-remove" aria-label="Quitar archivo">
+              <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+          </div>
+        `);
+      });
+    }
+
+    function quitarArchivo(index) {
+      archivosAdjuntos.splice(index, 1);
+      renderizarArchivos();
     }
 
     /* ---------- Historial de Conversaciones ---------- */
@@ -473,7 +443,7 @@ const SUGGESTIONS_HTML = `
 
     async function cargarHistorialConversaciones() {
       try {
-        const res = await fetch("http://localhost:8091/sessions");
+        const res = await fetch(BACKEND_URL.replace("/chat", "/sessions"));
         if (!res.ok) return;
         const sessions = await res.json();
 
@@ -546,14 +516,16 @@ const SUGGESTIONS_HTML = `
       const chatContainer = document.getElementById("chat-container");
       const welcome = document.getElementById("welcome");
 
-      if (!mensajeTexto && !archivoAdjunto) return;
+      if (!mensajeTexto && archivosAdjuntos.length === 0) return;
       if (welcome) welcome.remove();
 
       let textoVisual = mensajeTexto;
-      if (archivoAdjunto && !mensajeTexto) {
-        textoVisual = `Convierte el archivo ${archivoAdjunto.name} a CSV/JSON`;
-      } else if (archivoAdjunto) {
-        textoVisual += ` [Adjunto: ${archivoAdjunto.name}]`;
+      
+      // Armar el texto de lo que visualmente pide el usuario si hay adjuntos
+      if (archivosAdjuntos.length > 0 && !mensajeTexto) {
+        textoVisual = `Procesa los siguientes archivos: ${archivosAdjuntos.map(f => f.name).join(', ')}`;
+      } else if (archivosAdjuntos.length > 0) {
+        textoVisual += `\n\n[Adjuntos: ${archivosAdjuntos.map(f => f.name).join(', ')}]`;
       }
 
       chatContainer.insertAdjacentHTML("beforeend", `
@@ -565,19 +537,20 @@ const SUGGESTIONS_HTML = `
       input.value = "";
       resizeInput();
       
-      const archivoActual = archivoAdjunto;
-      quitarArchivo();
+      // Guardar lista actual y limpiar interfaz
+      const archivosParaEnviar = [...archivosAdjuntos];
+      archivosAdjuntos = [];
+      renderizarArchivos();
 
       sendBtn.disabled = true;
       setStatus("pending");
       chatContainer.scrollTop = chatContainer.scrollHeight;
 
-      // Determinación dinámica del texto de carga según la instrucción o archivo
       let textoCargando = "generando respuesta";
       const textoLower = mensajeTexto.toLowerCase();
       
-      if (archivoActual) {
-        textoCargando = "procesando y convirtiendo archivo CSV";
+      if (archivosParaEnviar.length > 0) {
+        textoCargando = "procesando archivos y datos";
       } else if (textoLower.includes("observatorio") || textoLower.includes("indexa")) {
         textoCargando = "indexando en el observatorio";
       } else if (textoLower.includes("datasource") || textoLower.includes("ingresa")) {
@@ -606,9 +579,13 @@ const SUGGESTIONS_HTML = `
 
       try {
         const formData = new FormData();
-        formData.append("message", mensajeTexto || "Procesa este archivo");
+        formData.append("message", mensajeTexto || "Procesa estos archivos");
         if (currentSessionId) formData.append("session_id", currentSessionId);
-        if (archivoActual) formData.append("file", archivoActual);
+        
+        // Iterar y añadir múltiples archivos bajo la misma key "file"
+        archivosParaEnviar.forEach((file) => {
+          formData.append("file", file);
+        });
 
         const response = await fetch(BACKEND_URL, {
           method: "POST",
@@ -724,6 +701,12 @@ const SUGGESTIONS_HTML = `
     setStatus("ok");
     input.focus();
     cargarHistorialConversaciones();
+
+    // Inyectar las sugerencias la primera vez para asegurar consistencia si la página recarga normal
+    const welcomeSection = document.getElementById("welcome");
+    if (welcomeSection && !welcomeSection.querySelector('.suggestions-grid')) {
+      welcomeSection.insertAdjacentHTML('beforeend', SUGGESTIONS_HTML);
+    }
 </script>
 </body>
 </html>

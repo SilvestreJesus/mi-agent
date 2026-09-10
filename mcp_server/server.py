@@ -13,7 +13,7 @@ from fastmcp import FastMCP
 load_dotenv()
 
 # 1. Agrega 'pipeline' a las importaciones
-from tools import basic, catalog, csv_converter, observatory, datasource, products, pipeline # noqa: E402  (después de load_dotenv, como en jub-agent)
+from tools import basic, catalog, csv_converter, observatory, datasource, products, queries, service, pipeline # noqa: E402  (después de load_dotenv, como en jub-agent)
 
 mcp = FastMCP(
     name="tutorial-mcp",
@@ -31,6 +31,8 @@ csv_converter.register(mcp)
 observatory.register(mcp)
 datasource.register(mcp)
 products.register(mcp)
+queries.register(mcp)
+service.register(mcp)
 
 # 2. Registra el pipeline en el servidor MCP
 pipeline.register(mcp)
