@@ -183,32 +183,10 @@
     let chatToDeleteId = null;
     let currentSessionId = null; 
 
-const SUGGESTIONS_HTML = `
+    const SUGGESTIONS_HTML = `
       <div class="suggestions-grid grid grid-cols-1 md:grid-cols-2 gap-3 mt-10 max-w-2xl mx-auto">
         
-        <!-- Botón 1: Analizar Imagen -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Analiza la imagen adjunta o de este enlace:\\n\\nurl_imagen: \\npregunta: Describe detalladamente qué información contiene esta imagen.')">
-          <span class="suggestion-icon">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          </span>
-          <span>
-            <div class="text-sm font-medium mb-1">Analizar Imagen</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Usa IA Multimodal para extraer contexto de una URL.</div>
-          </span>
-        </button>
-
-        <!-- Botón 2: Consultar Servicios -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Consulta los servicios vinculados al observatorio activo con esta consulta:\\n\\nquery: ')">
-          <span class="suggestion-icon">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M21 21l-4.35-4.35"/></svg>
-          </span>
-          <span>
-            <div class="text-sm font-medium mb-1">Consultar Servicios</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Busca servicios o ejecuta una consulta DSL en JUB.</div>
-          </span>
-        </button>
-
-        <!-- Botón 3: Convertir CSV a JSON (Restaurado) -->
+        <!-- 1. Convertir CSV a JSON -->
         <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Convierte el archivo CSV adjunto a formato JSON.')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M7 4.5h7l4 4v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z"/><path stroke-width="1.7" stroke-linecap="round" d="M9.5 13.5h5M9.5 16.5h3"/></svg>
@@ -219,25 +197,75 @@ const SUGGESTIONS_HTML = `
           </span>
         </button>
 
-        <!-- Botón 4: Ver archivos generados (Restaurado) -->
+        <!-- 2. Ver archivos generados -->
         <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Muéstrame los archivos JSON que se han generado hasta ahora.')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="2.6" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M5 6v12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6M5 12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6"/></svg>
           </span>
           <span>
             <div class="text-sm font-medium mb-1">Ver archivos generados</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Lista los catálogos y registros JSON disponibles y enlaces de descarga.</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Lista los catálogos y registros JSON disponibles y sus enlaces de descarga.</div>
           </span>
         </button>
 
-        <!-- Botón 5: Indexar completo -->
+        <!-- 3. Indexar en el Observatorio -->
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Indexa en JUB el observatorio con los siguientes parámetros:\\n\\n[Observatorio]\\nobservatory_title: \\nobservatory_description: \\ninstitution: \\nedition: \\ncountry: \\nimage_url: ')">
+          <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M4.5 12c1.8-4.2 5-6.3 7.5-6.3s5.7 2.1 7.5 6.3c-1.8 4.2-5 6.3-7.5 6.3S6.3 16.2 4.5 12Z"/></svg>
+          </span>
+          <span>
+            <div class="text-sm font-medium mb-1">Indexar en el Observatorio</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)] font-mono whitespace-pre-line">[Observatorio]
+observatory_title: 
+observatory_description: 
+institution: 
+edition: 
+country: 
+image_url: </div>
+          </span>
+        </button>
+
+        <!-- 4. Ingresar a DataSource -->
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Indexa en JUB el datasource del json: [Nombre de tu archivo JSON]\\n\\nCon los siguientes parámetros:\\n[DataSource]\\ndatasource_name: \\ndatasource_description: \\nsource_id: ')">
+          <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M20 7 12 3 4 7v10l8 4 8-4V7Z"/><path stroke-width="1.7" stroke-linecap="round" d="M4 7l8 4 8-4M12 11v10"/></svg>
+          </span>
+          <span>
+            <div class="text-sm font-medium mb-1">Ingresar a DataSource</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)] font-mono whitespace-pre-line">[DataSource]
+datasource_name: 
+datasource_description: 
+source_id: </div>
+          </span>
+        </button>
+
+        <!-- 5. Indexar completo (Index v2) -->
         <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Ejecuta la indexación integral v2 (CSV adjunto) en JUB con los siguientes parámetros:\\n\\n[Observatorio]\\nobservatory_title: \\nobservatory_description: \\ninstitution: \\nedition: \\ncountry: \\nimage_url: \\n\\n[DataSource]\\ndatasource_name: \\ndatasource_description: \\nsource_id: \\n\\n[Producto]\\nproduct_name_base: \\nproduct_description_base: \\nproduct_id_base: \\nstart_year: \\nend_year: \\nproduct_file_filename: ')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg>
           </span>
           <span>
             <div class="text-sm font-medium mb-1">Indexar completo (Index v2)</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Flujo completo y categorizado: Observatorio, Datasource, múltiples Productos y subida de recursos.</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)] font-mono whitespace-pre-line">[Observatorio]
+observatory_title: 
+observatory_description: 
+institution: 
+edition: 
+country: 
+image_url: 
+
+[DataSource]
+datasource_name: 
+datasource_description: 
+source_id: 
+
+[Producto]
+product_name_base: 
+product_description_base: 
+product_id_base: 
+start_year: 
+end_year: 
+product_file_filename: </div>
           </span>
         </button>
       </div>`;
