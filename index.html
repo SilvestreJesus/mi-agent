@@ -183,7 +183,7 @@
     let chatToDeleteId = null;
     let currentSessionId = null; 
 
-    const SUGGESTIONS_HTML = `
+const SUGGESTIONS_HTML = `
       <div class="suggestions-grid grid grid-cols-1 md:grid-cols-2 gap-3 mt-10 max-w-2xl mx-auto">
         
         <!-- 1. Convertir CSV a JSON -->
@@ -215,13 +215,7 @@
           </span>
           <span>
             <div class="text-sm font-medium mb-1">Indexar en el Observatorio</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)] font-mono whitespace-pre-line">[Observatorio]
-observatory_title: 
-observatory_description: 
-institution: 
-edition: 
-country: 
-image_url: </div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Registra los catálogos convertidos como un Observatorio en JUB.</div>
           </span>
         </button>
 
@@ -232,44 +226,21 @@ image_url: </div>
           </span>
           <span>
             <div class="text-sm font-medium mb-1">Ingresar a DataSource</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)] font-mono whitespace-pre-line">[DataSource]
-datasource_name: 
-datasource_description: 
-source_id: </div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Sube los registros del origen ya indexado a un DataSource de JUB.</div>
           </span>
         </button>
 
         <!-- 5. Indexar completo (Index v2) -->
-        <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Ejecuta la indexación integral v2 (CSV adjunto) en JUB con los siguientes parámetros:\\n\\n[Observatorio]\\nobservatory_title: \\nobservatory_description: \\ninstitution: \\nedition: \\ncountry: \\nimage_url: \\n\\n[DataSource]\\ndatasource_name: \\ndatasource_description: \\nsource_id: \\n\\n[Producto]\\nproduct_name_base: \\nproduct_description_base: \\nproduct_id_base: \\nstart_year: \\nend_year: \\nproduct_file_filename: ')">
+        <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Indexa el archivo adjunto en JUB con los siguientes datos: \\n\\n[Observatorio]\\nobservatory_title: \\nobservatory_description: \\ninstitution: \\nedition: \\ncountry: \\nimage_url: \\n\\n[DataSource]\\ndatasource_name: \\ndatasource_description: \\nsource_id: \\n\\n[Producto]\\nproduct_name_base: \\nproduct_description_base: \\nproduct_id_base: \\nstart_year: \\nend_year: \\nproduct_file_filename: ')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg>
           </span>
           <span>
-            <div class="text-sm font-medium mb-1">Indexar completo (Index v2)</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)] font-mono whitespace-pre-line">[Observatorio]
-observatory_title: 
-observatory_description: 
-institution: 
-edition: 
-country: 
-image_url: 
-
-[DataSource]
-datasource_name: 
-datasource_description: 
-source_id: 
-
-[Producto]
-product_name_base: 
-product_description_base: 
-product_id_base: 
-start_year: 
-end_year: 
-product_file_filename: </div>
+            <div class="text-sm font-medium mb-1">Indexar completo</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Ejecuta el index integral rellenando los parámetros estructurados por entidad.</div>
           </span>
         </button>
       </div>`;
-      
     /* ---------- Tema ---------- */
     function applyTheme(theme) {
       document.documentElement.classList.toggle("light", theme === "light");
