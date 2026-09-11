@@ -60,7 +60,7 @@ services:
       MCP_SERVER_URL: "http://mcp-server:8000/mcp"
       JUB_API_URL: "${JUB_API_URL}"  
     ports:
-      - "8091:8081"
+      - "127.0.0.1:8091:8081"
     volumes:
       - ./mcp_server/sources:/app/sources
       - ./mcp_server/images:/app/images
@@ -81,7 +81,7 @@ services:
     image: nginx:alpine
     container_name: mcp-agent-frontend
     ports:
-      - "4000:80"
+      - "127.0.0.1:4000:80"
     volumes:
       - ./index.html:/usr/share/nginx/html/index.html
       - ./styles.css:/usr/share/nginx/html/styles.css

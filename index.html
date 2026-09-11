@@ -183,7 +183,7 @@
     let chatToDeleteId = null;
     let currentSessionId = null; 
 
-    const SUGGESTIONS_HTML = `
+const SUGGESTIONS_HTML = `
       <div class="suggestions-grid grid grid-cols-1 md:grid-cols-2 gap-3 mt-10 max-w-2xl mx-auto">
         <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Convierte el archivo CSV adjunto a formato JSON.')">
           <span class="suggestion-icon">
@@ -205,7 +205,7 @@
           </span>
         </button>
 
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Indexa en el observatorio los JSON que acabas de convertir.')">
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Indexa en JUB el observatorio con los siguientes parámetros:\\n\\nobservatory_id: \\ntitle: \\ndescription: \\nimage_url: ')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M4.5 12c1.8-4.2 5-6.3 7.5-6.3s5.7 2.1 7.5 6.3c-1.8 4.2-5 6.3-7.5 6.3S6.3 16.2 4.5 12Z"/></svg>
           </span>
@@ -215,7 +215,7 @@
           </span>
         </button>
 
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Ingresa los registros de ese origen al DataSource de JUB.')">
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Indexa en JUB el datasource del json: [Nombre de tu archivo JSON]\\n\\nCon los siguientes parámetros:\\nsource_id: \\nname: \\ndescription: ')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M20 7 12 3 4 7v10l8 4 8-4V7Z"/><path stroke-width="1.7" stroke-linecap="round" d="M4 7l8 4 8-4M12 11v10"/></svg>
           </span>
@@ -225,17 +225,17 @@
           </span>
         </button>
 
-        <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Indexa el archivo adjunto en JUB con los siguientes datos:\\n\\nobservatory_title: Benceno RETC\\nobservatory_description: Registro de emisiones de benceno por municipio reportadas al RETC.\\ninstitution: SEMARNAT\\nedition: 2024\\ncountry: México\\nproduct_name: Dataset Benceno RETC\\nproduct_description: Dataset con las emisiones reportadas.\\ndatasource_name: Fuente Benceno SLP\\ndatasource_description: Datos oficiales del registro.')">
+        <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Ejecuta el index integral adjunto en JUB usando los siguientes parámetros:\\n\\n[Observatorio]\\nobservatory_title: \\nobservatory_description: \\ninstitution: \\nedition: \\ncountry: \\nimage_url: \\n\\n[DataSource]\\ndatasource_name: \\ndatasource_description: \\n\\n[Producto]\\nproduct_name_base: \\nproduct_description_base: \\nstart_year: \\nend_year: ')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg>
           </span>
           <span>
-            <div class="text-sm font-medium mb-1">Indexar completo (Pipeline v2)</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Ejecuta el pipeline integral rellenando automáticamente los parámetros obligatorios.</div>
+            <div class="text-sm font-medium mb-1">Indexar completo (Index v2)</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Ejecuta el index integral rellenando los parámetros estructurados por entidad.</div>
           </span>
         </button>
       </div>`;
-
+      
     /* ---------- Tema ---------- */
     function applyTheme(theme) {
       document.documentElement.classList.toggle("light", theme === "light");
