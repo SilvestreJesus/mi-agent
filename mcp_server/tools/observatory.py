@@ -7,11 +7,9 @@ from fastmcp import FastMCP
 
 from config import DATA_RECORDS_FILE, JUB_PASS, JUB_URL, JUB_USER, STATE_FILE
 
-
 SOURCES_DIR = Path("sources")
 IMAGES_DIR = Path("images")
 DATA_DIR = Path("data")
-CATALOGS_FILE = SOURCES_DIR / "catalogs.json"
 
 # Definición de niveles STORI según el tipo de catálogo
 CATALOG_LEVELS = {
@@ -30,11 +28,12 @@ def resolve_existing_path(filename: str) -> Path:
         return candidate
 
     for folder in [
+        DATA_DIR,  # Priorizamos DATA_DIR porque aquí caen los JSON convertidos
         SOURCES_DIR,
+        Path("/app/data"),
         Path("/app/sources"),
         IMAGES_DIR,
         Path("/app/images"),
-        DATA_DIR,
         Path("/app"),
     ]:
         alt = folder / candidate.name
@@ -42,6 +41,19 @@ def resolve_existing_path(filename: str) -> Path:
             return alt
 
     return candidate
+
+
+def _get_latest_catalog() -> Optional[Path]:
+    """Busca el archivo catalogs_*.json más reciente en la carpeta data/."""
+    catalogs = list(DATA_DIR.glob("catalogs_*.json"))
+    if not catalogs:
+        # Si no hay con prefijo catalogs_, busca cualquiera que se llame catalogs.json
+        fallback = DATA_DIR / "catalogs.json"
+        return fallback if fallback.exists() else None
+    
+    # Ordenar por fecha de modificación (el más nuevo primero)
+    catalogs.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+    return catalogs[0]
 
 
 def _is_conflict(status_code: int, detail: str) -> bool:
@@ -74,25 +86,19 @@ def register(mcp: FastMCP):
         image_url: Optional[str] = None,
         catalogs_filename: Optional[str] = "catalogs.json",
     ) -> str:
-        """Paso completo equivalente al tutorial JUB:
-
-        1. Crea o verifica la existencia del Observatorio en JUB.
-        2. Registra los catálogos en Bulk vinculándolos al Observatorio.
-        3. Enlaza los niveles STORI correspondientes.
-        4. Construye el mapa de índices (`item_index`) aplanando ítems y guarda
-        el archivo `.state.json`.
-        """
+        """Paso completo equivalente al tutorial JUB."""
+        
         target_catalogs_path = resolve_existing_path(catalogs_filename)
 
-        if not target_catalogs_path.exists():
-            return (
-                f"Error: No se encontró el archivo de catálogos en"
-                f" {target_catalogs_path}."
-            )
+        # MAGIA AQUÍ: Si no existe el archivo exacto o si el agente dejó el nombre por defecto
+        if not target_catalogs_path.exists() or catalogs_filename == "catalogs.json":
+            latest_catalog = _get_latest_catalog()
+            if latest_catalog:
+                target_catalogs_path = latest_catalog
+            else:
+                return f"Error: No se encontró ningún archivo de catálogos en {DATA_DIR}."
 
-        async with httpx.AsyncClient(
-            base_url=JUB_URL, timeout=30.0
-        ) as client:
+        async with httpx.AsyncClient(base_url=JUB_URL, timeout=30.0) as client:
             headers = {}
 
             # 1. Autenticación 
@@ -122,7 +128,6 @@ def register(mcp: FastMCP):
                 "metadata": metadata or {},
             }
             
-            # Solo agregamos image_url al payload si el agente te lo envió
             if image_url:
                 obs_payload["image_url"] = image_url
 
@@ -163,7 +168,7 @@ def register(mcp: FastMCP):
             bulk_json = bulk_res.json()
             catalog_ids = bulk_json.get("catalog_ids", [])
 
-            # Si el endpoint bulk no enlaza niveles explícitamente, los enlazamos según la tabla STORI
+            # Si el endpoint bulk no enlaza niveles explícitamente, los enlazamos
             for cat_dict, cat_id in zip(bulk_payload, catalog_ids):
                 cat_type = cat_dict.get("catalog_type", "INTEREST")
                 level = CATALOG_LEVELS.get(cat_type, 2)
@@ -174,7 +179,7 @@ def register(mcp: FastMCP):
                     headers=headers,
                 )
 
-            # 4. Paso 4: Construir el mapa de índices (value -> catalog_item_id)
+            # 4. Paso 4: Construir el mapa de índices
             item_index: Dict[str, str] = {}
             for cat_id in catalog_ids:
                 cat_res = await client.get(
@@ -188,7 +193,7 @@ def register(mcp: FastMCP):
                         if val and item_id:
                             item_index[val] = item_id
 
-            # 5. Guardar el estado en .state.json para la ingesta de datos/registros
+            # 5. Guardar el estado sobrescribiendo el archivo anterior
             state = {
                 "observatory_id": observatory_id,
                 "catalog_ids": {
@@ -210,7 +215,9 @@ def register(mcp: FastMCP):
                     "observatory_id": observatory_id,
                     "catalogs_registered": len(catalog_ids),
                     "indexed_items": len(item_index),
+                    "catalogs_file_used": target_catalogs_path.name,
                     "state_file": str(STATE_FILE.resolve()),
                 },
                 ensure_ascii=False,
+                indent=2
             )
