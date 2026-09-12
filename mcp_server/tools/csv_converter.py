@@ -270,25 +270,37 @@ def build_temporal_catalog_universal(rows: list[dict], headers: list[str]) -> tu
     )
     return cat_temp, col_year
 
-
 def build_interest_catalogs_universal(rows: list[dict], headers: list[str], excluded_cols: Set[str]) -> tuple[list[dict], List[str]]:
-    """Identifica dinámicamente columnas de interés categóricas y genera catálogos."""
+    """
+    Identifica inteligentemente columnas categóricas o de interés en CUALQUIER CSV,
+    incluso si contienen números de baja cardinalidad (ej. Grupos IARC, género, códigos categóricos).
+    """
     categorical_cols = []
+    total_rows = len(rows)
+    
     for h in headers:
         if h in excluded_cols:
             continue
+            
         col_lower = h.lower().strip()
-        if any(suffix in col_lower for suffix in ["cve", "code", "id", "lat", "lng", "utmx", "utmy", "_kg", "index"]):
+        
+        if any(term in col_lower for term in ['_id', 'id_', 'uuid', 'lat', 'lng', 'utmx', 'utmy', 'finallat', 'finallng']):
             continue
 
         non_empty_vals = [normalize_str(row.get(h)) for row in rows if normalize_str(row.get(h))]
         if not non_empty_vals:
             continue
 
-        numeric_count = sum(1 for v in non_empty_vals if is_numeric_value(v))
-        if numeric_count / len(non_empty_vals) < 0.6:
-            unique_vals = set(non_empty_vals)
-            if len(unique_vals) <= max(200, len(rows) * 0.5):
+        unique_vals = set(non_empty_vals)
+        n_unique = len(unique_vals)
+        
+        is_low_cardinality = n_unique <= 100 and n_unique <= (total_rows * 0.3)
+        
+        numeric_count = sum(1 for v in unique_vals if is_numeric_value(v))
+        is_mostly_numeric = (numeric_count / n_unique) >= 0.8 if n_unique > 0 else False
+
+        if not is_mostly_numeric or is_low_cardinality:
+            if n_unique > 1:  
                 categorical_cols.append(h)
 
     catalogs = []
@@ -304,9 +316,12 @@ def build_interest_catalogs_universal(rows: list[dict], headers: list[str], excl
                     name=val,
                     value=item_val,
                     code=idx,
-                    value_type="STRING",
-                    description=f"Valor de interés de la variable '{col}': {val}",
-                    aliases=[alias(val, "STRING", "Valor original"), alias(to_upper_snake(val), "STRING", "Formato UPPER_SNAKE")],
+                    value_type="NUMBER" if is_numeric_value(val) else "STRING",
+                    description=f"Valor categórico de la variable '{col}': {val}",
+                    aliases=[
+                        alias(val, "NUMBER" if is_numeric_value(val) else "STRING", "Valor original"),
+                        alias(to_upper_snake(val), "STRING", "Formato UPPER_SNAKE")
+                    ],
                 )
             )
 
@@ -315,7 +330,7 @@ def build_interest_catalogs_universal(rows: list[dict], headers: list[str], excl
             name=f"Dimensión de Interés — {col}",
             value=f"INTEREST_{col_snake}",
             catalog_type="interest",
-            description=f"Catálogo de categorías extraídas de la columna '{col}'",
+            description=f"Catálogo dinámico extraído de la columna '{col}'",
             items=items,
         )
         catalogs.append(cat_obj)
@@ -332,7 +347,7 @@ def row_to_data_record_universal(
     col_year: Optional[str],
     interest_cols: List[str],
 ) -> dict:
-    """Convierte una fila del CSV a un DataRecord alineado al esquema JUB."""
+    """Convierte una fila de cualquier CSV a un DataRecord JUB, clasificando métricas y categorías correctamente."""
     s_val = normalize_str(row.get(col_ent)) if col_ent else ""
     m_val = normalize_str(row.get(col_mun)) if col_mun else ""
 
@@ -362,18 +377,24 @@ def row_to_data_record_universal(
 
     numerical_interest_ids = {}
     for col, val in row.items():
+        if col in interest_cols or col in [col_ent, col_mun, col_year]:
+            continue
         if val is None:
             continue
+            
         s_val = normalize_str(val)
         if not s_val:
             continue
 
         if is_numeric_value(s_val):
             col_lower = col.lower().strip()
-            if any(k in col_lower for k in ["_id", "cve_", "cve", "code", "lat", "lng", "utmx", "utmy"]):
+            if any(k in col_lower for k in ["_id", "uuid", "lat", "lng", "utmx", "utmy"]):
                 continue
             col_snake = to_upper_snake(col)
-            numerical_interest_ids[col_snake] = float(s_val)
+            try:
+                numerical_interest_ids[col_snake] = float(s_val) if '.' in s_val else int(s_val)
+            except ValueError:
+                pass
 
     rec_id = row.get("_id") or row.get("id") or f"rec_{uuid.uuid4().hex[:12]}"
 
@@ -386,6 +407,7 @@ def row_to_data_record_universal(
         "numerical_interest_ids": numerical_interest_ids,
         "raw_payload": dict(row),
     }
+
 
 
 def _get_dirs() -> tuple[Path, Path]:
