@@ -254,7 +254,7 @@ async def chat(
                             await out_file.write(chunk)
 
                     active_session_images[session_id].append(f.filename)
-                    file_info_list.append(f"[Imagen adjunta guardada con éxito en '/app/images/{f.filename}'. Usa 'product_file_filename=\"{f.filename}\"' para la herramienta 'index_v2']")
+                    file_info_list.append(f"[Imagen adjunta guardada con éxito en '/app/images/{f.filename}']")
 
                 # Si el archivo es un CSV u otro tipo de documento de datos
                 else:
@@ -264,7 +264,7 @@ async def chat(
                             await out_file.write(chunk)
 
                     active_session_files[session_id].append(f.filename)
-                    file_info_list.append(f"[Archivo CSV guardado exitosamente en '/app/sources/{f.filename}'. Usa 'csv_path=\"{f.filename}\"' para 'convertir_csv_a_json' o 'csv_filename=\"{f.filename}\"' para 'index_v2']")
+                    file_info_list.append(f"[Archivo CSV guardado exitosamente en '/app/sources/{f.filename}'. Usa 'csv_filename=\"{f.filename}\"']")
 
     # Recuperar archivos de contexto previo si no hay nuevos adjuntos en este mensaje
     elif session_id in active_session_files or session_id in active_session_images:
