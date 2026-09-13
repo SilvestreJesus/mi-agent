@@ -183,65 +183,88 @@
     let chatToDeleteId = null;
     let currentSessionId = null; 
 
-    const SUGGESTIONS_HTML = `
+const SUGGESTIONS_HTML = `
       <div class="suggestions-grid grid grid-cols-1 md:grid-cols-2 gap-3 mt-10 max-w-2xl mx-auto">
         
         <!-- 1. Convertir CSV a JSON -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Convierte el archivo CSV adjunto a formato JSON.')">
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Convierte el archivo CSV adjunto a formato JSON estructurado para JUB.')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M7 4.5h7l4 4v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z"/><path stroke-width="1.7" stroke-linecap="round" d="M9.5 13.5h5M9.5 16.5h3"/></svg>
           </span>
           <span>
-            <div class="text-sm font-medium mb-1">Convertir CSV a JSON</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Sube un CSV y genera automáticamente sus catálogos y registros en JSON.</div>
+            <div class="text-sm font-medium mb-1">1. Convertir CSV a JSON</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Genera catalogs.json y data_records.json desde un CSV.</div>
           </span>
         </button>
 
         <!-- 2. Ver archivos generados -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Muéstrame los archivos JSON que se han generado hasta ahora.')">
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Muéstrame los archivos JSON generados y su estado actual.')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="2.6" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M5 6v12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6M5 12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6"/></svg>
           </span>
           <span>
-            <div class="text-sm font-medium mb-1">Ver archivos generados</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Lista los catálogos y registros JSON disponibles y sus enlaces de descarga.</div>
+            <div class="text-sm font-medium mb-1">2. Ver archivos generados</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Lista los catálogos y registros JSON disponibles.</div>
           </span>
         </button>
 
-        <!-- 3. Indexar en el Observatorio -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Indexa en JUB el observatorio con los siguientes parámetros:\\n\\n[Observatorio]\\nobservatory_id: \\nobservatory_title: \\nobservatory_description: \\ninstitution: \\nedition: \\ncountry: \\nimage_url: ')">
+        <!-- 3. Botón Separado: Indexar Observatorio -->
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Crea el Observatorio raíz en JUB:\\n\\n[Observatorio]\\nobservatory_id: obs_\\nobservatory_title: \\nobservatory_description: \\npublic: true')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M4.5 12c1.8-4.2 5-6.3 7.5-6.3s5.7 2.1 7.5 6.3c-1.8 4.2-5 6.3-7.5 6.3S6.3 16.2 4.5 12Z"/></svg>
           </span>
           <span>
-            <div class="text-sm font-medium mb-1">Indexar en el Observatorio</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Registra un nuevo Observatorio en JUB estructurando sus metadatos.</div>
+            <div class="text-sm font-medium mb-1">3. Indexar Observatorio</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Crea el contenedor raíz que se usará como base para los siguientes recursos.</div>
           </span>
         </button>
 
-        <!-- 4. Ingresar a DataSource -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Indexa en JUB el datasource con los siguientes parámetros:\\n\\n[DataSource]\\ndatasource_id: \\ndatasource_name: \\ndatasource_description: \\nobservatory_id: \\nfile_path: ')">
-          <span class="suggestion-icon">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M20 7 12 3 4 7v10l8 4 8-4V7Z"/><path stroke-width="1.7" stroke-linecap="round" d="M4 7l8 4 8-4M12 11v10"/></svg>
-          </span>
-          <span>
-            <div class="text-sm font-medium mb-1">Ingresar a DataSource</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Registra una fuente de datos vinculada a un observatorio existente.</div>
-          </span>
-        </button>
-
-        <!-- 5. Indexar completo / Integral -->
-        <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Indexa el archivo adjunto en JUB de forma completa con la siguiente estructura:\\n\\n[Observatorio]\\nobservatory_id: \\nobservatory_title: \\nobservatory_description: \\ninstitution: \\nedition: \\ncountry: \\nimage_url: \\n\\n[DataSource]\\ndatasource_id: \\ndatasource_name: \\ndatasource_description: \\n\\n[Producto]\\nproduct_id: \\nproduct_name: \\nproduct_description: \\nstart_year: \\nend_year: ')">
+        <!-- 4. Botón Separado: Indexar Catálogos (Vinculado a Observatorio) -->
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra y enlaza los catálogos en bulk al observatorio existente:\\n\\n[Catálogos]\\nobservatory_id: (pega aquí tu observatory_id anterior)\\ncatalog_file: catalogs.json')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg>
           </span>
           <span>
-            <div class="text-sm font-medium mb-1">Indexar completo</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Ejecuta el flujo integral rellenando Observatorio, DataSource y Producto.</div>
+            <div class="text-sm font-medium mb-1">4. Indexar Catálogos</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Sube catálogos (Spatial, Temporal, etc.) y los enlaza al Observatorio por niveles STORI.</div>
           </span>
         </button>
-      </div>`;
 
+        <!-- 5. Botón Separado: Indexar DataSource y Records -->
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra el DataSource e ingesta los records:\\n\\n[DataSource]\\nname: \\ndescription: \\nformat: csv\\nconnection_uri: file://...\\nobservatory_id: (opcional para referencia)')">
+          <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M20 7 12 3 4 7v10l8 4 8-4V7Z"/><path stroke-width="1.7" stroke-linecap="round" d="M4 7l8 4 8-4M12 11v10"/></svg>
+          </span>
+          <span>
+            <div class="text-sm font-medium mb-1">5. Indexar DataSource</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Configura la fuente de datos y hace bulk-ingest de las filas mapeadas.</div>
+          </span>
+        </button>
+
+        <!-- 6. Botón Separado: Indexar Products (Vinculado a Observatorio) -->
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Crea y enlaza los productos (dataset o por año) al observatorio:\\n\\n[Products]\\nobservatory_id: (pega aquí tu observatory_id anterior)\\nproduct_id: \\nproduct_name: \\nproduct_description: ')">
+          <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M7 4.5h7l4 4v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z"/></svg>
+          </span>
+          <span>
+            <div class="text-sm font-medium mb-1">6. Indexar Products</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Crea artefactos con identidad propia y los enlaza al Observatorio activo.</div>
+          </span>
+        </button>
+
+        <!-- 7. Indexar Completo / Integral -->
+        <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Ejecuta el flujo completo e integral en JUB de forma automatizada:\\n\\n[Configuración General]\\nobservatory_id: \\nobservatory_title: \\ncsv_file: emisiones_benceno.csv')">
+          <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </span>
+          <span>
+            <div class="text-sm font-medium mb-1">7. Indexar Completo (Integral)</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Ejecuta de una sola vez los scripts del 01 al 06 (Observatorio, Catálogos, DataSource, Records y Products).</div>
+          </span>
+        </button>
+
+      </div>`;
+      
       /* ---------- Tema ---------- */
     function applyTheme(theme) {
       document.documentElement.classList.toggle("light", theme === "light");
