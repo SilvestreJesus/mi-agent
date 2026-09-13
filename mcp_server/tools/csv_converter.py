@@ -270,11 +270,9 @@ def build_temporal_catalog_universal(rows: list[dict], headers: list[str]) -> tu
     )
     return cat_temp, col_year
 
+
 def build_interest_catalogs_universal(rows: list[dict], headers: list[str], excluded_cols: Set[str]) -> tuple[list[dict], List[str]]:
-    """
-    Identifica inteligentemente columnas categóricas o de interés en CUALQUIER CSV,
-    incluso si contienen números de baja cardinalidad (ej. Grupos IARC, género, códigos categóricos).
-    """
+    """Identifica inteligentemente columnas categóricas o de interés en CUALQUIER CSV."""
     categorical_cols = []
     total_rows = len(rows)
     
@@ -347,7 +345,7 @@ def row_to_data_record_universal(
     col_year: Optional[str],
     interest_cols: List[str],
 ) -> dict:
-    """Convierte una fila de cualquier CSV a un DataRecord JUB, clasificando métricas y categorías correctamente."""
+    """Convierte una fila de cualquier CSV a un DataRecord JUB."""
     s_val = normalize_str(row.get(col_ent)) if col_ent else ""
     m_val = normalize_str(row.get(col_mun)) if col_mun else ""
 
@@ -409,7 +407,6 @@ def row_to_data_record_universal(
     }
 
 
-
 def _get_dirs() -> tuple[Path, Path]:
     base_app_dir = Path(__file__).resolve().parent.parent
     sources_dir = base_app_dir / "sources"
@@ -420,7 +417,6 @@ def _get_dirs() -> tuple[Path, Path]:
 
 
 def _resolve_input_csv(csv_path: str, sources_dir: Path) -> Path:
-    """Resuelve la ruta real del CSV buscando en sources/ si la ruta dada no existe."""
     cand = Path(csv_path)
     if cand.exists():
         return cand
@@ -525,14 +521,22 @@ def register(mcp: FastMCP) -> None:
         with open(rec_out, "w", encoding="utf-8") as f:
             json.dump(data_records, f, ensure_ascii=False, indent=2)
 
-        return (
-            f"✓ Conversión Universal Exitosa:\n"
-            f"• Archivo procesado: {path.name}\n"
-            f"• Source ID: '{source_id}'\n"
-            f"• Catálogos generados ({len(all_catalogs)}): {cat_out.name}\n"
-            f"• Registros generados: {rec_out.name} ({len(data_records)} filas)\n"
-            f"• Columnas de Interés detectadas: {', '.join(interest_cols) if interest_cols else 'Ninguna (todas numéricas/id)'}"
-        )
+        # RETORNO ESTRUCTURADO EN JSON PARA QUE EL FRONTEND GENERE LOS BOTONES DE DESCARGA
+        return json.dumps({
+            "status": "success",
+            "message": "Conversión Universal Exitosa",
+            "file_catalogs": cat_out.name,
+            "file_records": rec_out.name,
+            "download_url_catalogs": f"/files/{cat_out.name}",
+            "download_url_records": f"/files/{rec_out.name}",
+            "summary": {
+                "archivo_procesado": path.name,
+                "source_id": source_id,
+                "total_registros": len(data_records),
+                "total_catalogos": len(all_catalogs),
+                "columnas_interes": interest_cols
+            }
+        }, ensure_ascii=False, indent=2)
 
     @mcp.tool()
     async def listar_archivos_generados(source_id: Optional[str] = None) -> str:
