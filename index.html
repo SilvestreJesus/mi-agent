@@ -182,7 +182,6 @@
     const BACKEND_URL = "http://localhost:8091/chat";
     let chatToDeleteId = null;
     let currentSessionId = null; 
-
 const SUGGESTIONS_HTML = `
       <div class="suggestions-grid grid grid-cols-1 md:grid-cols-2 gap-3 mt-10 max-w-2xl mx-auto">
         
@@ -209,7 +208,7 @@ const SUGGESTIONS_HTML = `
         </button>
 
         <!-- 3. Botón Separado: Indexar Observatorio -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Crea el Observatorio raíz en JUB:\\n\\n[Observatorio]\\nobservatory_id: obs_\\nobservatory_title: \\nobservatory_description: \\npublic: true')">
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Crea el Observatorio raíz en JUB:\\n\\n[Observatorio]\\nobservatory_title: \\nobservatory_description: \\ninstitution: SEMARNAT\\nedition: 2024\\ncountry: México\\nimage_url: https://cdn.pixabay.com/photo/2024/03/13/17/57/artificial-intelligence-8631497_1280.jpg\\nuser_id: usr_system')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M4.5 12c1.8-4.2 5-6.3 7.5-6.3s5.7 2.1 7.5 6.3c-1.8 4.2-5 6.3-7.5 6.3S6.3 16.2 4.5 12Z"/></svg>
           </span>
@@ -219,8 +218,8 @@ const SUGGESTIONS_HTML = `
           </span>
         </button>
 
-        <!-- 4. Botón Separado: Indexar Catálogos (Vinculado a Observatorio) -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra y enlaza los catálogos en bulk al observatorio existente:\\n\\n[Catálogos]\\nobservatory_id: (pega aquí tu observatory_id anterior)\\ncatalog_file: catalogs.json')">
+        <!-- 4. Botón Separado: Indexar Catálogos -->
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra y enlaza los catálogos en bulk al observatorio existente:\\n\\n[Catálogos]\\nobservatory_id: \\nobservatory_title: \\ncountry: México\\nedition: 2024\\ncsv_filename: normalized_data.csv')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg>
           </span>
@@ -231,7 +230,7 @@ const SUGGESTIONS_HTML = `
         </button>
 
         <!-- 5. Botón Separado: Indexar DataSource y Records -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra el DataSource e ingesta los records:\\n\\n[DataSource]\\nname: \\ndescription: \\nformat: csv\\nconnection_uri: file://...\\nobservatory_id: (opcional para referencia)')">
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra el DataSource e ingesta los records:\\n\\n[DataSource]\\ndatasource_name: \\ndatasource_description: \\nsource_id: src_\\nobservatory_id: \\ncsv_filename: normalized_data.csv')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M20 7 12 3 4 7v10l8 4 8-4V7Z"/><path stroke-width="1.7" stroke-linecap="round" d="M4 7l8 4 8-4M12 11v10"/></svg>
           </span>
@@ -241,8 +240,8 @@ const SUGGESTIONS_HTML = `
           </span>
         </button>
 
-        <!-- 6. Botón Separado: Indexar Products (Vinculado a Observatorio) -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Crea y enlaza los productos (dataset o por año) al observatorio:\\n\\n[Products]\\nobservatory_id: (pega aquí tu observatory_id anterior)\\nproduct_id: \\nproduct_name: \\nproduct_description: ')">
+        <!-- 6. Botón Separado: Indexar Products -->
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Crea y enlaza los productos múltiples al observatorio:\\n\\n[Products]\\nobservatory_id: \\nproduct_name_base: \\nproduct_description_base: \\nproduct_id_base: \\nstart_year: 2000\\nend_year: 2026')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M7 4.5h7l4 4v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z"/></svg>
           </span>
@@ -253,18 +252,17 @@ const SUGGESTIONS_HTML = `
         </button>
 
         <!-- 7. Indexar Completo / Integral -->
-        <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Ejecuta el flujo completo e integral en JUB de forma automatizada:\\n\\n[Configuración General]\\nobservatory_id: \\nobservatory_title: \\ncsv_file: emisiones_benceno.csv')">
+        <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Ejecuta el flujo completo e integral en JUB de forma automatizada:\\n\\n[Observatorio]\\nobservatory_title: Emisiones de Benceno RETC México\\nobservatory_description: Registro de emisiones y transferencia de contaminantes por municipio en México.\\ninstitution: SEMARNAT\\nedition: 2024\\ncountry: México\\nimage_url: https://cdn.pixabay.com/photo/2024/03/13/17/57/artificial-intelligence-8631497_1280.jpg\\n\\n[DataSource]\\ndatasource_name: DataSource Emisiones Benceno\\ndatasource_description: Datos crudos de emisiones anuales procesados desde CSV.\\nsource_id: src_emisiones_benceno\\n\\n[Producto]\\nproduct_name_base: Emisiones de Benceno\\nproduct_description_base: Dataset de reporte anual de benceno\\nproduct_id_base: benceno-retc\\nstart_year: 2000\\nend_year: 2026\\n\\n[Adjuntos: normalized_data.csv]')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/></svg>
           </span>
           <span>
-            <div class="text-sm font-medium mb-1">7. Indexar Completo (Integral)</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Ejecuta de una sola vez los scripts del 01 al 06 (Observatorio, Catálogos, DataSource, Records y Products).</div>
+            <div class="text-sm font-medium mb-1">7. Indexar Completo </div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Ejecuta de una sola vez todo el aprovisionamiento (Observatorio, Catálogos, DataSource, Records y Products).</div>
           </span>
         </button>
 
       </div>`;
-      
       /* ---------- Tema ---------- */
     function applyTheme(theme) {
       document.documentElement.classList.toggle("light", theme === "light");
