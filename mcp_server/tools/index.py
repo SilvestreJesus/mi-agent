@@ -105,9 +105,7 @@ def register(mcp: FastMCP):
             }, ensure_ascii=False)
 
 
-    # =========================================================================
-    # HERRAMIENTAS MODULARES POR SEPARADO (Para un flujo paso a paso)
-    # =========================================================================
+    # HERRAMIENTAS MODULARES POR SEPARADO 
 
     @mcp.tool(name="crear_observatorio")
     async def crear_observatorio(
@@ -119,7 +117,7 @@ def register(mcp: FastMCP):
         image_url: Optional[str] = None,
         user_id: str = "usr_system",
     ) -> str:
-        """Crea únicamente el contenedor raíz (Observatorio) en JUB y devuelve su observatory_id y task_id."""
+        """Crea únicamente el contenedor raíz (Observatorio) en JUB v2."""
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -146,7 +144,7 @@ def register(mcp: FastMCP):
                 "status": "success",
                 "observatory_id": data.get("observatory_id"),
                 "task_id": data.get("task_id"),
-                "message": "Observatorio creado exitosamente. Guarda este observatory_id para los siguientes pasos."
+                "message": "Observatorio creado exitosamente. Guarda este observatory_id."
             }, ensure_ascii=False, indent=2)
 
 
@@ -159,7 +157,7 @@ def register(mcp: FastMCP):
         csv_filename: Optional[str] = None,
         csv_content: Optional[str] = None,
     ) -> str:
-        """Genera y vincula los catálogos (Espacial y Temporal) en bulk a un observatorio existente."""
+        """Genera y vincula los catálogos en bulk a un observatorio existente."""
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -234,8 +232,8 @@ def register(mcp: FastMCP):
         product_name_base: str,
         product_description_base: str,
         product_id_base: Optional[str] = None,
-        start_year: str = "2004",
-        end_year: str = "2014",
+        start_year: str = "2000",
+        end_year: str = "2026",
     ) -> str:
         """Crea productos múltiples por rango de años vinculados a un observatorio."""
         token = await _get_jub_token()
@@ -287,9 +285,8 @@ def register(mcp: FastMCP):
         source_id: Optional[str] = None,
         edition: str = "2024",
         country: str = "México",
-        user_id: str = "usr_system",
     ) -> str:
-        """Crea el DataSource e ingesta masiva de registros a partir de un archivo CSV."""
+        """Crea el DataSource e ingesta masiva de registros a partir de un archivo CSV con lotes."""
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -310,7 +307,7 @@ def register(mcp: FastMCP):
         if source_id:
             ds_payload["source_id"] = source_id
 
-        async with httpx.AsyncClient(base_url=JUB_URL, timeout=90.0) as client:
+        async with httpx.AsyncClient(base_url=JUB_URL, timeout=300.0) as client:
             ds_res = await client.post("/api/v2/datasources", json=ds_payload, headers=headers)
             created_source_id = (
                 ds_res.json().get("source_id")
@@ -341,28 +338,32 @@ def register(mcp: FastMCP):
                             "raw_payload": row,
                         })
 
-            if records_list:
+            # Ingesta por lotes 
+            batch_size = 1000
+            total_uploaded = 0
+            for i in range(0, len(records_list), batch_size):
+                batch = records_list[i:i + batch_size]
                 rec_res = await client.post(
                     f"/api/v2/datasources/{created_source_id}/records",
-                    json=records_list,
+                    json=batch,
                     headers=headers,
                 )
                 if rec_res.status_code not in (200, 201):
-                    return json.dumps({"status": "error", "message": f"Error registrando records: {rec_res.text}"}, ensure_ascii=False)
+                    return json.dumps({"status": "error", "message": f"Error registrando lote en records: {rec_res.text}"}, ensure_ascii=False)
+                total_uploaded += len(batch)
 
             return json.dumps({
                 "status": "success",
                 "source_id": created_source_id,
-                "registros_subidos": len(records_list),
-                "message": "DataSource creado y registros ingeridos correctamente."
+                "registros_subidos": total_uploaded,
+                "message": "DataSource creado y registros ingeridos por lotes correctamente."
             }, ensure_ascii=False, indent=2)
 
 
-    # =========================================================================
-    # TU FUNCIÓN PRINCIPAL INTACTA (Indexación Integral Completa)
-    # =========================================================================
-    @mcp.tool(name="index")
-    async def index(
+    # FUNCIÓN INTEGRADORA OPTIMIZADA PARA ARCHIVOS PESADOS 
+
+    @mcp.tool(name="index_v2")
+    async def index_v2(
         observatory_title: Optional[str] = None,
         observatory_description: Optional[str] = None,
         institution: Optional[str] = None,
@@ -383,9 +384,7 @@ def register(mcp: FastMCP):
         image_url: Optional[str] = None,              
         user_id: str = "usr_system",
     ) -> str:
-        """Herramienta v2 para la provisión e indexación completa de observatorios, catálogos,
-        productos múltiples por año, archivos/imágenes y datasources en JUB API v2 de forma integrada.
-        """
+        """Herramienta v2 optimizada para indexación integral completa con soporte para archivos CSV pesados."""
         missing_params = []
         if not observatory_title: missing_params.append("observatory_title")
         if not observatory_description: missing_params.append("observatory_description")
@@ -431,7 +430,8 @@ def register(mcp: FastMCP):
 
         stem = path_csv.stem.replace("temp_", "")
 
-        async with httpx.AsyncClient(base_url=JUB_URL, timeout=90.0) as client:
+        # Timeout extendido a 300 segundos para prevenir caídas con CSVs pesados
+        async with httpx.AsyncClient(base_url=JUB_URL, timeout=300.0) as client:
             token = await _get_jub_token()
             headers = {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -641,7 +641,7 @@ def register(mcp: FastMCP):
             else:
                 resumen["archivos_recursos"] = "Sin archivos ni imágenes adjuntas"
 
-            steps_log.append("[5/6] Creando DataSource y registrando datos...")
+            steps_log.append("[5/6] Creando DataSource y registrando datos por lotes...")
             ds_payload = {
                 "name": datasource_name,
                 "description": datasource_description,
@@ -683,16 +683,22 @@ def register(mcp: FastMCP):
                             "raw_payload": row,
                         })
 
-            if records_list:
+            # Subida por bloques de 1,000 registros para evitar errores de memoria o timeouts en archivos pesados
+            batch_size = 1000
+            total_uploaded = 0
+            for i in range(0, len(records_list), batch_size):
+                batch = records_list[i:i + batch_size]
                 rec_res = await client.post(
                     f"/api/v2/datasources/{created_source_id}/records",
-                    json=records_list,
+                    json=batch,
                     headers=headers,
                 )
-                if rec_res.status_code in (200, 201):
-                    resumen["registros"] = f"{len(records_list)} registros subidos"
+                if rec_res.status_code not in (200, 201):
+                    warnings.append(f"Error subiendo lote {i}: {rec_res.text[:100]}")
                 else:
-                    warnings.append(f"Error al ingerir registros: {rec_res.text[:150]}")
+                    total_uploaded += len(batch)
+
+            resumen["registros"] = f"{total_uploaded} registros subidos en lotes"
 
             steps_log.append("[6/6] Finalizando tarea...")
             complete_res = await client.post(
@@ -726,7 +732,7 @@ def register(mcp: FastMCP):
                     "steps_completed": steps_log,
                     "resumen": resumen,
                     "advertencias": warnings,
-                    "mensaje": "¡Indexación completada correctamente bajo el esquema v2 de JUB con productos múltiples!",
+                    "mensaje": "¡Indexación integral completada correctamente con lotes optimizados para archivos pesados!",
                 },
                 ensure_ascii=False,
                 indent=2,
