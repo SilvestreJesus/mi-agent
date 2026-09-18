@@ -26,7 +26,7 @@ def register(mcp: FastMCP):
     @mcp.tool(name="crear_productos_multiples")
     async def crear_productos_multiples(
         product_name_base: str,
-        product_desc_base: str,
+        product_desc_base: Optional[str] = None,
         start_year: int = 2004,
         end_year: int = 2014
     ) -> str:

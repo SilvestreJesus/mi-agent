@@ -10,7 +10,7 @@ _INSTRUCTIONS = (
     "REGLAS DE OPERACIÓN:\n"
     "1. Herramientas de Indexación:\n"
     "   - `index_v2`: Úsala para solicitudes de indexación integral completa (ejecuta todo el flujo de una vez, soportando archivos CSV pesados mediante procesamiento por lotes).\n"
-    "   - Herramientas modulares por separado: `indexar_observatorio`, `ingresar_datasource`, `crear_productos_multiples` para procesar elementos de forma independiente utilizando el archivo `.state.json`.\n"
+    "   - Herramientas modulares por separado: `indexar_observatorio`, `ingresar_datasource`, `crear_productos` para procesar elementos de forma independiente utilizando el archivo `.state.json`.\n"
     "2. Herramientas de consulta y listado:\n"
     "   - `listar_recursos_generales`: Muestra todos los observatorios, catálogos, datasources y productos.\n"
     "   - `obtener_detalle_recurso`: Muestra detalles de un observatorio o datasource.\n"

@@ -230,12 +230,17 @@ def register(mcp: FastMCP):
     async def crear_productos(
         observatory_id: str,
         product_name_base: str,
-        product_description_base: str,
+        product_desc_base: Optional[str] = None,
+        product_description_base: Optional[str] = None, 
         product_id_base: Optional[str] = None,
         start_year: str = "2000",
         end_year: str = "2026",
     ) -> str:
         """Crea productos múltiples por rango de años vinculados a un observatorio."""
+        desc_final = product_desc_base or product_description_base
+        if not desc_final:
+            return json.dumps({"status": "error", "message": "Falta el parámetro 'product_desc_base' o 'product_description_base'."}, ensure_ascii=False)
+
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -247,7 +252,7 @@ def register(mcp: FastMCP):
         products_list = []
         main_prod = {
             "name": f"Dataset {product_name_base} {s_year}-{e_year}",
-            "description": f"Dataset completo de {product_description_base}",
+            "description": f"Dataset completo de {desc_final}",
             "catalog_item_ids": []
         }
         if product_id_base:
@@ -257,7 +262,7 @@ def register(mcp: FastMCP):
         for year in range(s_year, e_year + 1):
             y_prod = {
                 "name": f"{product_name_base} — {year}",
-                "description": f"{product_description_base} - Periodo {year}",
+                "description": f"{desc_final} - Periodo {year}",
                 "catalog_item_ids": []
             }
             if product_id_base:
@@ -274,7 +279,6 @@ def register(mcp: FastMCP):
                 "resultado": res.json(),
                 "message": "Productos múltiples creados y vinculados con éxito."
             }, ensure_ascii=False, indent=2)
-
 
     @mcp.tool(name="crear_datasource_y_ingestar")
     async def crear_datasource_y_ingestar(
@@ -578,7 +582,7 @@ def register(mcp: FastMCP):
             products_list = []
             main_prod = {
                 "name": f"Dataset {product_name_base} {s_year}-{e_year}",
-                "description": f"Dataset completo de {product_description_base}",
+                "description": f"Dataset completo de {product_desc_base}",
                 "catalog_item_ids": []
             }
             if product_id_base:
@@ -588,7 +592,7 @@ def register(mcp: FastMCP):
             for year in range(s_year, e_year + 1):
                 y_prod = {
                     "name": f"{product_name_base} — {year}",
-                    "description": f"{product_description_base} - Periodo {year}",
+                    "description": f"{product_desc_base} - Periodo {year}",
                     "catalog_item_ids": []
                 }
                 if product_id_base:
