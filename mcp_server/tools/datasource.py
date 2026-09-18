@@ -46,13 +46,17 @@ def register(mcp: FastMCP):
         format_type: str = "csv",
         test_dsl_query: str = "jub.v1.VI(VALOR)",
         records_filename: Optional[str] = None,
+        csv_filename: Optional[str] = None,
+        source_id: Optional[str] = None,
     ) -> str:
+        
         """Crea el DataSource, lo enlaza al Observatorio, mapea registros con el índice e ingesta masivamente."""
         
         # 1. Determinar y resolver la ruta de registros
+        target_file = csv_filename or records_filename
         records_path = (
-            resolve_existing_path(records_filename)
-            if records_filename
+            resolve_existing_path(target_file)
+            if target_file
             else DATA_RECORDS_FILE
         )
 
