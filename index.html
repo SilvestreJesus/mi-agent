@@ -169,7 +169,7 @@
         </div>
         <div>
           <h2 class="font-semibold text-sm">Guía y Manual de JUB</h2>
-          <p class="text-[11px] text-[color:var(--muted)]">Conexión, recursos, archivos y copiado rápido</p>
+          <p class="text-[11px] text-[color:var(--muted)]">Instrucciones modulares, consultas y copiado rápido</p>
         </div>
       </div>
       <button onclick="toggleCatalogDrawer()" class="p-2 rounded-lg text-[color:var(--muted)] hover:text-[color:var(--text)] hover:bg-[color:var(--surface-2)]">
@@ -179,43 +179,34 @@
 
     <div class="p-4 overflow-y-auto space-y-4 flex-1 text-xs">
       <div class="p-3 rounded-xl border bg-[color:var(--surface-2)]" style="border-color:var(--border)">
-        <p class="font-medium text-[color:var(--text)] mb-1">💡 Conexión y Modelo STORI</p>
+        <p class="font-medium text-[color:var(--text)] mb-1">💡 Funcionamiento Independiente</p>
         <p class="text-[color:var(--muted)] leading-relaxed">
-          Jub organiza la información bajo el modelo STORI. Usa las herramientas de conexión para verificar IDs, títulos y archivos CSV/JSON en fuentes.
+          Las acciones operan de forma modular. Puedes reutilizar el estado del archivo <code>.state.json</code> para acciones quirúrgicas o auditorías sin necesidad de reindexar todo.
         </p>
       </div>
 
-      <!-- Tarjeta Guía 0: Verificar Conexión y Listar Observatorios -->
+      <!-- Tarjeta Guía 1 -->
       <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
         <div class="flex items-center justify-between mb-1.5">
-          <span class="font-semibold text-[color:var(--text)]">Ver Conexión e IDs</span>
-          <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
-        </div>
-        <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Verifica la conexión con JUB y muéstrame la lista completa de observatorios con sus ID, títulos, catálogos y productos disponibles.</pre>
-      </div>
-
-      <!-- Tarjeta Guía 1: Listar Archivos CSV y JSON en Fuentes -->
-      <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
-        <div class="flex items-center justify-between mb-1.5">
-          <span class="font-semibold text-[color:var(--text)]">Listar Archivos CSV / JSON</span>
-          <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
-        </div>
-        <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Muéstrame todos los archivos CSV originales y archivos JSON generados almacenados en las fuentes y directorios del sistema.</pre>
-      </div>
-
-      <!-- Tarjeta Guía 2 -->
-      <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
-        <div class="flex items-center justify-between mb-1.5">
-          <span class="font-semibold text-[color:var(--text)]">Convertir CSV a JSON</span>
+          <span class="font-semibold text-[color:var(--text)]">1. Convertir CSV a JSON</span>
           <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
         </div>
         <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Convierte el archivo CSV adjunto a formato JSON estructurado para JUB.</pre>
       </div>
 
+      <!-- Tarjeta Guía 2 -->
+      <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="font-semibold text-[color:var(--text)]">2. Ver archivos generados</span>
+          <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
+        </div>
+        <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Muéstrame los archivos JSON generados y su estado actual.</pre>
+      </div>
+
       <!-- Tarjeta Guía 3 -->
       <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
         <div class="flex items-center justify-between mb-1.5">
-          <span class="font-semibold text-[color:var(--text)]">Indexar Observatorio</span>
+          <span class="font-semibold text-[color:var(--text)]">3. Crear Observatorio (Modular)</span>
           <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
         </div>
         <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Crea el Observatorio raíz en JUB:
@@ -233,7 +224,7 @@ user_id: usr_system</pre>
       <!-- Tarjeta Guía 4 -->
       <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
         <div class="flex items-center justify-between mb-1.5">
-          <span class="font-semibold text-[color:var(--text)]">Indexar Catálogos</span>
+          <span class="font-semibold text-[color:var(--text)]">4. Crear Catálogos (Bulk)</span>
           <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
         </div>
         <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Registra y enlaza los catálogos en bulk al observatorio existente:
@@ -249,7 +240,7 @@ csv_filename: normalized_data.csv</pre>
       <!-- Tarjeta Guía 5 -->
       <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
         <div class="flex items-center justify-between mb-1.5">
-          <span class="font-semibold text-[color:var(--text)]">Indexar DataSource</span>
+          <span class="font-semibold text-[color:var(--text)]">5. Ingestar DataSource</span>
           <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
         </div>
         <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Registra el DataSource e ingesta los records:
@@ -265,7 +256,7 @@ csv_filename: normalized_data.csv</pre>
       <!-- Tarjeta Guía 6 -->
       <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
         <div class="flex items-center justify-between mb-1.5">
-          <span class="font-semibold text-[color:var(--text)]">Indexar Products</span>
+          <span class="font-semibold text-[color:var(--text)]">6. Crear Productos</span>
           <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
         </div>
         <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Crea y enlaza los productos múltiples al observatorio:
@@ -282,7 +273,7 @@ end_year: '2026'</pre>
       <!-- Tarjeta Guía 7 -->
       <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
         <div class="flex items-center justify-between mb-1.5">
-          <span class="font-semibold text-[color:var(--text)]">Pipeline Integral (Completo)</span>
+          <span class="font-semibold text-[color:var(--text)]">7. Pipeline Integral (Completo)</span>
           <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
         </div>
         <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Ejecuta el flujo completo e integral en JUB de forma automatizada:
@@ -305,6 +296,34 @@ product_description_base: Dataset de reporte anual
 product_id_base: benceno-retc
 start_year: '2000'
 end_year: '2026'</pre>
+      </div>
+
+      <!-- Tarjeta Guía 8: Consultas Analíticas DSL -->
+      <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="font-semibold text-[color:var(--text)]">8. Consultas Analíticas (DSL)</span>
+          <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
+        </div>
+        <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Ejecuta una consulta DSL para filtrar registros analíticos:
+Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz un resumen estadístico.</pre>
+      </div>
+
+      <!-- Tarjeta Guía 9: Auditoría y Listados -->
+      <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="font-semibold text-[color:var(--text)]">9. Auditoría y Listado de Recursos</span>
+          <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
+        </div>
+        <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Muéstrame la lista de productos, catálogos y el detalle general de los recursos indexados en el observatorio actual.</pre>
+      </div>
+
+      <!-- Tarjeta Guía 10: Análisis Multimodal (Imágenes) -->
+      <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="font-semibold text-[color:var(--text)]">10. Análisis Multimodal de Imágenes</span>
+          <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
+        </div>
+        <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Analiza la imagen adjunta y extrae las métricas clave para incorporarlas al observatorio.</pre>
       </div>
     </div>
   </aside>
@@ -345,29 +364,7 @@ end_year: '2026'</pre>
     const SUGGESTIONS_HTML = `
       <div class="suggestions-grid grid grid-cols-1 md:grid-cols-2 gap-3 mt-10 max-w-2xl mx-auto">
         
-        <!-- 0. Ver Conexión e IDs -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Verifica la conexión con JUB y muéstrame la lista completa de observatorios con sus ID, títulos, catálogos y productos disponibles.')">
-          <span class="suggestion-icon">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M12 8v4M12 16h.01"/></svg>
-          </span>
-          <span>
-            <div class="text-sm font-medium mb-1">Ver Conexión e IDs</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Lista observatorios, ID, títulos y recursos del modelo STORI.</div>
-          </span>
-        </button>
-
-        <!-- 1. Listar Archivos CSV y JSON -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Muéstrame todos los archivos CSV originales y archivos JSON generados almacenados en las fuentes y directorios del sistema.')">
-          <span class="suggestion-icon">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg>
-          </span>
-          <span>
-            <div class="text-sm font-medium mb-1">Listar Archivos CSV / JSON</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Muestra por separado los archivos CSV originales y JSONs generados.</div>
-          </span>
-        </button>
-
-        <!-- 2. Convertir CSV a JSON -->
+        <!-- 1. Convertir CSV a JSON -->
         <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Convierte el archivo CSV adjunto a formato JSON estructurado para JUB.')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M7 4.5h7l4 4v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z"/><path stroke-width="1.7" stroke-linecap="round" d="M9.5 13.5h5M9.5 16.5h3"/></svg>
@@ -378,29 +375,40 @@ end_year: '2026'</pre>
           </span>
         </button>
 
-        <!-- 3. Indexar Observatorio -->
+        <!-- 2. Ver archivos generados -->
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Muéstrame los archivos JSON generados y su estado actual.')">
+          <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="2.6" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M5 6v12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6M5 12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6"/></svg>
+          </span>
+          <span>
+            <div class="text-sm font-medium mb-1">Ver archivos generados</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Lista los catálogos y registros JSON disponibles.</div>
+          </span>
+        </button>
+
+        <!-- 3. Botón Separado: Indexar Observatorio -->
         <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Crea el Observatorio raíz en JUB:\\n\\n[Observatorio]\\nobservatory_title: \\nobservatory_description: \\ninstitution: SEMARNAT\\nedition: \\'2024\\'\\ncountry: México\\nimage_url: https://cdn.pixabay.com/photo/2024/03/13/17/57/artificial-intelligence-8631497_1280.jpg\\nuser_id: usr_system')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M4.5 12c1.8-4.2 5-6.3 7.5-6.3s5.7 2.1 7.5 6.3c-1.8 4.2-5 6.3-7.5 6.3S6.3 16.2 4.5 12Z"/></svg>
           </span>
           <span>
             <div class="text-sm font-medium mb-1">Indexar Observatorio</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Crea el contenedor raíz que se usará como base para los recursos.</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Crea el contenedor raíz que se usará como base para los siguientes recursos.</div>
           </span>
         </button>
 
-        <!-- 4. Indexar Catálogos -->
+        <!-- 4. Botón Separado: Indexar Catálogos -->
         <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra y enlaza los catálogos en bulk al observatorio existente:\\n\\n[Catálogos]\\nobservatory_id: \\nobservatory_title: \\ncountry: México\\nedition: \\'2024\\'\\ncsv_filename: normalized_data.csv')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg>
           </span>
           <span>
             <div class="text-sm font-medium mb-1">Indexar Catálogos</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Sube catálogos y los enlaza al Observatorio por niveles STORI.</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Sube catálogos (Spatial, Temporal, etc.) y los enlaza al Observatorio por niveles STORI.</div>
           </span>
         </button>
 
-        <!-- 5. Indexar DataSource -->
+        <!-- 5. Botón Separado: Indexar DataSource y Records -->
         <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra el DataSource e ingesta los records:\\n\\n[DataSource]\\ndatasource_name: \\ndatasource_description: \\nsource_id: src_\\nobservatory_id: \\ncsv_filename: normalized_data.csv')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M20 7 12 3 4 7v10l8 4 8-4V7Z"/><path stroke-width="1.7" stroke-linecap="round" d="M4 7l8 4 8-4M12 11v10"/></svg>
@@ -408,6 +416,28 @@ end_year: '2026'</pre>
           <span>
             <div class="text-sm font-medium mb-1">Indexar DataSource</div>
             <div class="text-xs leading-5 text-[color:var(--muted)]">Configura la fuente de datos y hace bulk-ingest de las filas mapeadas.</div>
+          </span>
+        </button>
+
+        <!-- 6. Botón Separado: Indexar Products -->
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Crea y enlaza los productos múltiples al observatorio:\\n\\n[Products]\\nobservatory_id: \\nproduct_name_base: \\nproduct_desc_base: \\nproduct_id_base: \\nstart_year: \\'2000\\'\\nend_year: \\'2026\\'')">
+          <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M7 4.5h7l4 4v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z"/></svg>
+          </span>
+          <span>
+            <div class="text-sm font-medium mb-1">Indexar Products</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Crea artefactos con identidad propia y los enlaza al Observatorio activo.</div>
+          </span>
+        </button>
+
+        <!-- 7. Indexar Completo / Integral -->
+        <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Ejecuta el flujo completo e integral en JUB de forma automatizada:\\n\\n[Observatorio]\\nobservatory_title: Emisiones de Benceno RETC México\\nobservatory_description: Registro de emisiones y transferencia de contaminantes por municipio en México.\\ninstitution: SEMARNAT\\nedition: \\'2024\\'\\ncountry: México\\nimage_url: https://cdn.pixabay.com/photo/2024/03/13/17/57/artificial-intelligence-8631497_1280.jpg\\n\\n[DataSource]\\ndatasource_name: DataSource Emisiones Benceno\\ndatasource_description: Datos crudos de emisiones anuales procesados desde CSV.\\nsource_id: src_emisiones_benceno\\n\\n[Producto]\\nproduct_name_base: Emisiones de Benceno\\nproduct_description_base: Dataset de reporte anual de benceno\\nproduct_id_base: benceno-retc\\nstart_year: \\'2000\\'\\nend_year: \\'2026\\'\\n\\n[Adjuntos: normalized_data.csv]')">
+          <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </span>
+          <span>
+            <div class="text-sm font-medium mb-1">Indexar Completo</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Ejecuta de una sola vez todo el aprovisionamiento (Observatorio, Catálogos, DataSource, Records y Products).</div>
           </span>
         </button>
 
