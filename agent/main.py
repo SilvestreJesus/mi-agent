@@ -138,6 +138,49 @@ async def delete_session(session_id: str):
     
     return {"status": "deleted"}
 
+
+
+@app.get("/observatories")
+async def listar_observatorios_api():
+    """Consulta directa al servidor backend/MCP para listar todos los observatorios con sus IDs y títulos."""
+    url = f"{MCP_HTTP_BASE}/observatories"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url)
+            if resp.status_code == 200:
+                return resp.json()
+    except Exception:
+        pass
+
+    
+    obs_list = []
+    if os.path.exists("state.json"):
+        try:
+            with open("state.json", "r", encoding="utf-8") as f:
+                obs_list.append(json.load(f))
+        except Exception:
+            pass
+    return {"observatories": obs_list}
+
+@app.get("/sources/files")
+async def listar_archivos_fuente_y_json():
+    """Lista todos los archivos CSV originales en sources/ y los JSON generados."""
+    csv_files = []
+    if os.path.exists(SHARED_UPLOAD_DIR):
+        csv_files = [f for f in os.listdir(SHARED_UPLOAD_DIR) if f.endswith(('.csv', '.json', '.txt'))]
+
+    json_files = []
+    try:
+        mcp_files = await listar_archivos_mcp()
+        json_files = [f["name"] for f in mcp_files]
+    except Exception:
+        pass
+
+    return {
+        "sources_dir_files": csv_files,
+        "json_generated_files": json_files
+    }
+
 @app.get("/download/{filename}")
 async def descargar_archivo(filename: str):
     if "/" in filename or "\\" in filename or ".." in filename:
@@ -188,7 +231,7 @@ async def chat(
     session_data = sessions_db[session_id]
     base = str(request.base_url).rstrip("/")
 
-    # Interceptación de consulta de archivos
+
     if not file and parece_pedido_de_archivos(message):
         source_id_mencionado = extraer_source_id_mencionado(message) or active_session_source_ids.get(session_id)
 
@@ -225,7 +268,7 @@ async def chat(
                 downloads=downloads,
             )
 
-    # Inicializar agente si no está activo
+
     if session_id not in active_session_agents:
         agent = build_agent()
         await agent.__aenter__()
@@ -234,8 +277,8 @@ async def chat(
     agent = active_session_agents[session_id]
 
     file_info_list = []
+
     
-    # Procesar la LISTA de archivos adjuntos
     if file:
         if session_id not in active_session_files:
             active_session_files[session_id] = []
@@ -256,7 +299,7 @@ async def chat(
                     active_session_images[session_id].append(f.filename)
                     file_info_list.append(f"[Imagen adjunta guardada con éxito en '/app/images/{f.filename}']")
 
-                # Si el archivo es un CSV u otro tipo de documento de datos
+
                 else:
                     file_path = os.path.join(SHARED_UPLOAD_DIR, f.filename)
                     async with aiofiles.open(file_path, "wb") as out_file:
@@ -266,7 +309,7 @@ async def chat(
                     active_session_files[session_id].append(f.filename)
                     file_info_list.append(f"[Archivo CSV guardado exitosamente en '/app/sources/{f.filename}'. Usa 'csv_filename=\"{f.filename}\"']")
 
-    # Recuperar archivos de contexto previo si no hay nuevos adjuntos en este mensaje
+
     elif session_id in active_session_files or session_id in active_session_images:
         for filename in active_session_files.get(session_id, []):
             if os.path.exists(os.path.join(SHARED_UPLOAD_DIR, filename)):
