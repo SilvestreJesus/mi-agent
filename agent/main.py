@@ -53,21 +53,13 @@ os.makedirs(SHARED_IMAGE_DIR, exist_ok=True)
 
 JSON_FILENAME_PATTERN = re.compile(r'([\w\-]+\.json)')
 SOURCE_ID_PATTERN = re.compile(r'\bsrc_[a-z0-9_]+\b', re.IGNORECASE)
-ARCHIVOS_INTENT_PATTERN = re.compile(
-    r'\b(json|archivo|archivos|descarg\w*|catalogo|catálogo|catalogos|catálogos|'
-    r'data_record|data_records|registro generado|registros generados)\b',
-    re.IGNORECASE,
-)
+
+# Patrones diferenciados para evitar confusiones
+INTENT_OBSERVATORIOS = re.compile(r'\b(observatorio|observatorios|id|ids|titulo|títulos|conexion|conexión)\b', re.IGNORECASE)
+INTENT_ARCHIVOS_SEPARADOS = re.compile(r'\b(csv|originales|fuentes|fuente)\b', re.IGNORECASE)
 
 def extraer_archivos_json(texto: str) -> List[str]:
     return list(dict.fromkeys(JSON_FILENAME_PATTERN.findall(texto)))
-
-def parece_pedido_de_archivos(mensaje: str) -> bool:
-    return bool(ARCHIVOS_INTENT_PATTERN.search(mensaje))
-
-def extraer_source_id_mencionado(mensaje: str) -> Optional[str]:
-    m = SOURCE_ID_PATTERN.search(mensaje)
-    return m.group(0) if m else None
 
 async def close_agent_session(session_id: str):
     """Cierra limpiamente el cliente MCP asociado a la sesión."""
@@ -138,49 +130,6 @@ async def delete_session(session_id: str):
     
     return {"status": "deleted"}
 
-
-
-@app.get("/observatories")
-async def listar_observatorios_api():
-    """Consulta directa al servidor backend/MCP para listar todos los observatorios con sus IDs y títulos."""
-    url = f"{MCP_HTTP_BASE}/observatories"
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(url)
-            if resp.status_code == 200:
-                return resp.json()
-    except Exception:
-        pass
-
-    
-    obs_list = []
-    if os.path.exists("state.json"):
-        try:
-            with open("state.json", "r", encoding="utf-8") as f:
-                obs_list.append(json.load(f))
-        except Exception:
-            pass
-    return {"observatories": obs_list}
-
-@app.get("/sources/files")
-async def listar_archivos_fuente_y_json():
-    """Lista todos los archivos CSV originales en sources/ y los JSON generados."""
-    csv_files = []
-    if os.path.exists(SHARED_UPLOAD_DIR):
-        csv_files = [f for f in os.listdir(SHARED_UPLOAD_DIR) if f.endswith(('.csv', '.json', '.txt'))]
-
-    json_files = []
-    try:
-        mcp_files = await listar_archivos_mcp()
-        json_files = [f["name"] for f in mcp_files]
-    except Exception:
-        pass
-
-    return {
-        "sources_dir_files": csv_files,
-        "json_generated_files": json_files
-    }
-
 @app.get("/download/{filename}")
 async def descargar_archivo(filename: str):
     if "/" in filename or "\\" in filename or ".." in filename:
@@ -230,45 +179,95 @@ async def chat(
 
     session_data = sessions_db[session_id]
     base = str(request.base_url).rstrip("/")
+    msg_lower = message.lower()
 
-
-    if not file and parece_pedido_de_archivos(message):
-        source_id_mencionado = extraer_source_id_mencionado(message) or active_session_source_ids.get(session_id)
-
+    # 1. Interceptar solicitud de Conexión e IDs de Observatorios
+    if not file and ("observatorio" in msg_lower or "conexión" in msg_lower or "conexion" in msg_lower or ("id" in msg_lower and "título" in msg_lower)):
+        obs_url = f"{MCP_HTTP_BASE}/observatories"
+        observatorios_info = []
         try:
-            archivos = await listar_archivos_mcp(source_id_mencionado)
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.get(obs_url)
+                if res.status_code == 200:
+                    observatorios_info = res.json().get("observatories", [])
         except Exception:
-            archivos = None
+            pass
 
-        if archivos is not None:
-            if archivos:
-                nombres = [a["name"] for a in archivos]
-                respuesta_texto = (
-                    f"Encontré {len(nombres)} archivo(s) JSON"
-                    + (f" para '{source_id_mencionado}'" if source_id_mencionado else "")
-                    + ":\n" + "\n".join(f"- {n}" for n in nombres)
-                )
-                downloads = [DownloadItem(name=n, url=f"{base}/download/{n}") for n in nombres]
-            else:
-                respuesta_texto = (
-                    "No encontré archivos JSON generados todavía"
-                    + (f" para '{source_id_mencionado}'" if source_id_mencionado else "")
-                    + ". Primero sube y convierte un archivo CSV."
-                )
-                downloads = None
+        if not observatorios_info and os.path.exists("state.json"):
+            try:
+                with open("state.json", "r", encoding="utf-8") as f:
+                    observatorios_info = [json.load(f)]
+            except Exception:
+                pass
 
-            session_data["messages"].append({"role": "user", "content": message})
-            session_data["messages"].append({"role": "assistant", "content": respuesta_texto})
-            await save_sessions_async()
+        if observatorios_info:
+            respuesta_texto = "── Conexión establecida con JUB ─────────────────────────────\n\nObservatorios registrados:\n"
+            for o in observatorios_info:
+                obs_id = o.get("observatory_id") or o.get("id") or "N/A"
+                obs_title = o.get("title") or o.get("observatory_title") or "Sin título"
+                institution = o.get("metadata", {}).get("institution") or o.get("institution") or "N/A"
+                edition = o.get("metadata", {}).get("edition") or o.get("edition") or "N/A"
+                respuesta_texto += f"• ID: {obs_id}\n  Título: {obs_title}\n  Institución: {institution} ({edition})\n\n"
+        else:
+            respuesta_texto = "── Conexión con JUB activa ─────────────────────────────\n\nNo se encontraron observatorios registrados actualmente en el sistema."
 
-            return ChatResponse(
-                session_id=session_id,
-                title=session_data["title"],
-                text=respuesta_texto,
-                downloads=downloads,
-            )
+        session_data["messages"].append({"role": "user", "content": message})
+        session_data["messages"].append({"role": "assistant", "content": respuesta_texto})
+        await save_sessions_async()
 
+        return ChatResponse(
+            session_id=session_id,
+            title=session_data["title"],
+            text=respuesta_texto,
+            downloads=None,
+        )
 
+    # 2. Interceptar solicitud de Listado de Archivos CSV Originales y JSON Generados por separado
+    if not file and ("csv" in msg_lower or "original" in msg_lower or "fuente" in msg_lower or "json" in msg_lower):
+        # Obtener CSVs originales de la carpeta sources local
+        csv_nombres = []
+        if os.path.exists(SHARED_UPLOAD_DIR):
+            csv_nombres = [f for f in os.listdir(SHARED_UPLOAD_DIR) if f.lower().endswith('.csv')]
+
+        # Obtener JSONs generados del servidor MCP
+        json_archivos = []
+        try:
+            mcp_files = await listar_archivos_mcp()
+            json_archivos = [f["name"] for f in mcp_files]
+        except Exception:
+            pass
+
+        respuesta_texto = "── Auditoría de Archivos del Sistema ──────────────────\n\n"
+        
+        respuesta_texto += f"📁 Archivos CSV Originales (en fuentes):\n"
+        if csv_nombres:
+            for c in csv_nombres:
+                respuesta_texto += f"  - {c}\n"
+        else:
+            respuesta_texto += f"  (Ningún archivo CSV encontrado en {SHARED_UPLOAD_DIR})\n"
+
+        respuesta_texto += f"\n📄 Archivos JSON Generados (en sistema):\n"
+        downloads = []
+        if json_archivos:
+            for j in json_archivos:
+                respuesta_texto += f"  - {j}\n"
+                downloads.append(DownloadItem(name=j, url=f"{base}/download/{j}"))
+        else:
+            respuesta_texto += f"  (Ningún archivo JSON generado todavía)\n"
+            downloads = None
+
+        session_data["messages"].append({"role": "user", "content": message})
+        session_data["messages"].append({"role": "assistant", "content": respuesta_texto})
+        await save_sessions_async()
+
+        return ChatResponse(
+            session_id=session_id,
+            title=session_data["title"],
+            text=respuesta_texto,
+            downloads=downloads if downloads else None,
+        )
+
+    # Inicializar agente si no está activo para otras consultas o flujos de IA
     if session_id not in active_session_agents:
         agent = build_agent()
         await agent.__aenter__()
@@ -277,7 +276,6 @@ async def chat(
     agent = active_session_agents[session_id]
 
     file_info_list = []
-
     
     if file:
         if session_id not in active_session_files:
@@ -289,7 +287,6 @@ async def chat(
             if f.filename: 
                 ext = os.path.splitext(f.filename)[1].lower()
 
-                # Si el archivo es una imagen
                 if ext in IMAGE_EXTENSIONS:
                     file_path = os.path.join(SHARED_IMAGE_DIR, f.filename)
                     async with aiofiles.open(file_path, "wb") as out_file:
@@ -298,8 +295,6 @@ async def chat(
 
                     active_session_images[session_id].append(f.filename)
                     file_info_list.append(f"[Imagen adjunta guardada con éxito en '/app/images/{f.filename}']")
-
-
                 else:
                     file_path = os.path.join(SHARED_UPLOAD_DIR, f.filename)
                     async with aiofiles.open(file_path, "wb") as out_file:
@@ -308,7 +303,6 @@ async def chat(
 
                     active_session_files[session_id].append(f.filename)
                     file_info_list.append(f"[Archivo CSV guardado exitosamente en '/app/sources/{f.filename}'. Usa 'csv_filename=\"{f.filename}\"']")
-
 
     elif session_id in active_session_files or session_id in active_session_images:
         for filename in active_session_files.get(session_id, []):
@@ -323,10 +317,6 @@ async def chat(
 
     result = await agent.run(prompt_completo)
     respuesta_texto = getattr(result, "text", str(result))
-
-    m = SOURCE_ID_PATTERN.search(respuesta_texto)
-    if m:
-        active_session_source_ids[session_id] = m.group(0)
 
     nombres_json = extraer_archivos_json(respuesta_texto)
     downloads = None
