@@ -105,7 +105,7 @@ def register(mcp: FastMCP):
             }, ensure_ascii=False)
 
 
-    # HERRAMIENTAS MODULARES POR SEPARADO 
+    # Herramienta para indexar por separado
 
     @mcp.tool(name="crear_observatorio")
     async def crear_observatorio(
@@ -364,10 +364,10 @@ def register(mcp: FastMCP):
             }, ensure_ascii=False, indent=2)
 
 
-    # FUNCIÓN INTEGRADORA OPTIMIZADA PARA ARCHIVOS PESADOS 
+    # Herramienta oara indexar completo
 
-    @mcp.tool(name="index_v2")
-    async def index_v2(
+    @mcp.tool(name="pipeline")
+    async def pipeline(
         observatory_title: Optional[str] = None,
         observatory_description: Optional[str] = None,
         institution: Optional[str] = None,
@@ -523,46 +523,46 @@ def register(mcp: FastMCP):
                 if f_csv:
                     f_csv.close()
 
-            catalogs_payload = {
-                "level": 0,
-                "catalogs": [
-                    {
-                        "name": f"Spatial - {observatory_title}",
-                        "value": "SPATIAL",
-                        "catalog_type": "spatial",
-                        "description": "Catálogo Geográfico",
-                        "items": spatial_items or [{
-                            "name": country,
-                            "value": country,
-                            "code": 1,
-                            "value_type": "string",
-                            "aliases": [],
-                            "children": [],
-                        }],
-                    },
-                    {
-                        "name": f"Temporal - {observatory_title}",
-                        "value": "TEMPORAL",
-                        "catalog_type": "temporal",
-                        "description": "Catálogo Temporal",
-                        "items": temporal_items or [{
-                            "name": edition,
-                            "value": f"Y{edition}",
-                            "code": 1,
-                            "value_type": "datetime",
-                            "temporal_value": f"{edition}-01-01T00:00:00Z",
-                            "aliases": [],
-                            "children": [],
-                        }],
-                    },
-                ],
-            }
+            # En lugar de un diccionario con "catalogs": [...], envía la lista directamente:
+            catalogs_payload = [
+                {
+                    "name": f"Spatial - {observatory_title}",
+                    "value": "SPATIAL",
+                    "catalog_type": "SPATIAL",
+                    "description": "Catálogo Geográfico",
+                    "items": spatial_items if spatial_items else [{
+                        "name": country,
+                        "value": country,
+                        "code": 1,
+                        "value_type": "string",
+                        "aliases": [],
+                        "children": []
+                    }],
+                },
+                {
+                    "name": f"Temporal - {observatory_title}",
+                    "value": "TEMPORAL",
+                    "catalog_type": "TEMPORAL",
+                    "description": "Catálogo Temporal",
+                    "items": temporal_items if temporal_items else [{
+                        "name": edition,
+                        "value": f"Y{edition}",
+                        "code": 1,
+                        "value_type": "datetime",
+                        "temporal_value": f"{edition}-01-01T00:00:00Z",
+                        "aliases": [],
+                        "children": []
+                    }],
+                }
+            ]
 
             cat_res = await client.post(
                 f"/api/v2/observatories/{observatory_id}/catalogs/bulk",
                 json=catalogs_payload,
                 headers=headers,
             )
+
+            
             if cat_res.status_code in (200, 201):
                 catalog_ids = cat_res.json().get("catalog_ids", [])
                 resumen["catalogos"] = f"{len(catalog_ids)} catálogos creados y vinculados"
