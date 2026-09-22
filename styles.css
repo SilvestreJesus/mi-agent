@@ -695,3 +695,65 @@ html.light .assistant-content a {
     max-width: 54vw;
   }
 }
+
+/* ---------- Panel Deslizante / Drawer tipo Libro (Catálogo) ---------- */
+.catalog-btn {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0,0,0,.03);
+  transition: .15s ease;
+}
+
+.catalog-btn:hover {
+  background: var(--surface-2);
+  border-color: rgba(214,163,72,.4);
+}
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+}
+
+.drawer-backdrop.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.catalog-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(420px, 90vw);
+  background: var(--sidebar);
+  border-left: 1px solid var(--border);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform .25s cubic-bezier(.4,0,.2,1);
+  box-shadow: -10px 0 35px rgba(0,0,0,0.4);
+}
+
+.catalog-drawer.active {
+  transform: translateX(0);
+}
+
+.copy-btn {
+  background: var(--surface-2);
+  color: var(--text);
+  transition: .15s ease;
+}
+
+.copy-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}

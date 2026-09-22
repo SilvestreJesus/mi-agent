@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 
-<body class="flex h-screen">
+<body class="flex h-screen overflow-hidden">
 
   <aside id="sidebar" class="sidebar flex flex-col shrink-0 h-full relative">
     <div class="sidebar-rail">
@@ -84,11 +84,21 @@
   </aside>
 
   <main class="main flex-1 flex flex-col h-full relative min-w-0">
-    <header class="topbar shrink-0 flex items-center justify-end px-4 md:px-6">
+    <header class="topbar shrink-0 flex items-center justify-between px-4 md:px-6">
       <div class="agent-pill flex items-center gap-2 px-3 py-1.5">
         <span id="header-dot" class="status-dot ok"></span>
         <span id="conn-label" class="text-[11px] text-[color:var(--muted)]">JUB activo</span>
       </div>
+
+      <!-- Botón Catálogo / Manual en forma de Libro -->
+      <button onclick="toggleCatalogDrawer()" class="catalog-btn flex items-center gap-2 px-3 py-1.5 rounded-xl border transition text-xs font-medium" title="Abrir catálogo e instrucciones">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="text-[color:var(--accent)]">
+          <path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+          <path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/>
+          <path stroke-width="1.8" stroke-linecap="round" d="M12 6v12"/>
+        </svg>
+        <span class="hidden sm:inline">Guía y Catálogo</span>
+      </button>
     </header>
 
     <section id="chat-container" class="flex-1 overflow-y-auto px-3 md:px-6 pb-56">
@@ -98,11 +108,11 @@
             ¿En qué puedo ayudarte?
           </h1>
           <p class="mt-4 text-sm md:text-[15px] leading-7 text-[color:var(--muted)] max-w-xl">
-            Realiza consultas sobre tus datos, catálogos y procesos de análisis.
-            Escribe una instrucción en lenguaje natural y el agente se encargará del proceso.
+            Realiza consultas independientes sobre tus datos, catálogos y procesos de análisis.
+            Escribe una instrucción en lenguaje natural o consulta la guía superior.
           </p>
         </div>
-        <!-- SUGGESTIONS_HTML se inyectará aquí dinámicamente -->
+        <!-- SUGGESTIONS_HTML inyectado dinámicamente -->
       </div>
     </section>
 
@@ -110,10 +120,7 @@
       <div class="composer-area">
         <form id="chat-form" onsubmit="enviarMensaje(event)" class="composer flex flex-col">
         
-        <!-- Contenedor flex para múltiples archivos -->
-        <div id="file-preview-container" class="hidden flex-wrap gap-2 px-3 pt-2">
-            <!-- Los chips de archivo se inyectarán aquí -->
-        </div>
+        <div id="file-preview-container" class="hidden flex-wrap gap-2 px-3 pt-2"></div>
 
         <textarea
             id="user-input"
@@ -128,7 +135,6 @@
             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.414 6.586a6 6 0 108.486 8.486L20.5 13"/>
             </svg>
-            <!-- Acepta csv e imágenes, con selección múltiple -->
             <input type="file" id="file-input" accept=".csv, image/*" multiple class="hidden" onchange="manejarSeleccionArchivo(event)">
             </label>
 
@@ -149,6 +155,149 @@
       </div>
     </div>
   </main>
+
+  <!-- PANEL LATERAL TIPO LIBRO (CATÁLOGO DE INSTRUCCIONES) -->
+  <div id="catalog-backdrop" class="drawer-backdrop" onclick="toggleCatalogDrawer()"></div>
+  <aside id="catalog-drawer" class="catalog-drawer">
+    <div class="flex items-center justify-between p-4 border-b" style="border-color:var(--border)">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg grid place-items-center bg-[color:var(--accent-soft)] text-[color:var(--accent)]">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+            <path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 6v12"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="font-semibold text-sm">Guía y Manual de JUB</h2>
+          <p class="text-[11px] text-[color:var(--muted)]">Instrucciones independientes y copiado rápido</p>
+        </div>
+      </div>
+      <button onclick="toggleCatalogDrawer()" class="p-2 rounded-lg text-[color:var(--muted)] hover:text-[color:var(--text)] hover:bg-[color:var(--surface-2)]">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="p-4 overflow-y-auto space-y-4 flex-1 text-xs">
+      <div class="p-3 rounded-xl border bg-[color:var(--surface-2)]" style="border-color:var(--border)">
+        <p class="font-medium text-[color:var(--text)] mb-1">💡 Funcionamiento Independiente</p>
+        <p class="text-[color:var(--muted)] leading-relaxed">
+          Las acciones operan de forma modular. Puedes crear un observatorio y, tiempo después, asignarle productos indicando su <code>observatory_id</code> almacenado en el archivo local <code>.state.json</code>.
+        </p>
+      </div>
+
+      <!-- Tarjeta Guía 1 -->
+      <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="font-semibold text-[color:var(--text)]">1. Convertir CSV a JSON</span>
+          <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
+        </div>
+        <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Convierte el archivo CSV adjunto a formato JSON estructurado para JUB.</pre>
+      </div>
+
+      <!-- Tarjeta Guía 2 -->
+      <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="font-semibold text-[color:var(--text)]">2. Ver archivos generados</span>
+          <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
+        </div>
+        <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Muéstrame los archivos JSON generados y su estado actual.</pre>
+      </div>
+
+      <!-- Tarjeta Guía 3 -->
+      <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="font-semibold text-[color:var(--text)]">3. Crear Observatorio</span>
+          <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
+        </div>
+        <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Crea el Observatorio raíz en JUB:
+
+[Observatorio]
+observatory_title: Emisiones de Benceno
+observatory_description: Registro anual de contaminantes
+institution: SEMARNAT
+edition: 2024
+country: México
+image_url: https://cdn.pixabay.com/photo/2024/03/13/17/57/artificial-intelligence-8631497_1280.jpg
+user_id: usr_system</pre>
+      </div>
+
+      <!-- Tarjeta Guía 4 -->
+      <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="font-semibold text-[color:var(--text)]">4. Crear Catálogos</span>
+          <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
+        </div>
+        <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Registra y enlaza los catálogos en bulk al observatorio existente:
+
+[Catálogos]
+observatory_id: obs_tu_id_aqui
+observatory_title: Emisiones de Benceno
+country: México
+edition: 2024
+csv_filename: normalized_data.csv</pre>
+      </div>
+
+      <!-- Tarjeta Guía 5 -->
+      <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="font-semibold text-[color:var(--text)]">5. Ingestar DataSource</span>
+          <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
+        </div>
+        <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Registra el DataSource e ingesta los records:
+
+[DataSource]
+datasource_name: Fuente Emisiones Benceno
+datasource_description: Datos crudos desde CSV
+source_id: src_benceno
+csv_filename: normalized_data.csv</pre>
+      </div>
+
+      <!-- Tarjeta Guía 6 -->
+      <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="font-semibold text-[color:var(--text)]">6. Crear Productos</span>
+          <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
+        </div>
+        <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Crea y enlaza los productos múltiples al observatorio:
+
+[Products]
+observatory_id: obs_tu_id_aqui
+product_name_base: Emisiones de Benceno
+product_desc_base: Dataset anual de benceno
+product_id_base: benceno-retc
+start_year: 2000
+end_year: 2026</pre>
+      </div>
+
+      <!-- Tarjeta Guía 7 -->
+      <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="font-semibold text-[color:var(--text)]">7. Indexar Completo (Pipeline)</span>
+          <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
+        </div>
+        <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Ejecuta el flujo completo e integral en JUB de forma automatizada:
+
+[Observatorio]
+observatory_title: Emisiones de Benceno RETC México
+observatory_description: Registro por municipio.
+institution: SEMARNAT
+edition: 2024
+country: México
+
+[DataSource]
+datasource_name: DataSource Emisiones Benceno
+datasource_description: Datos crudos
+source_id: src_emisiones_benceno
+
+[Producto]
+product_name_base: Emisiones de Benceno
+product_description_base: Dataset anual
+product_id_base: benceno-retc
+start_year: 2000
+end_year: 2026</pre>
+      </div>
+    </div>
+  </aside>
 
   <div id="delete-modal" class="modal-backdrop">
     <div class="modal">
@@ -265,7 +414,28 @@
 
       </div>`;
       
-      /* ---------- Tema ---------- */
+    /* ---------- Drawer Catálogo / Guía ---------- */
+    function toggleCatalogDrawer() {
+      const drawer = document.getElementById("catalog-drawer");
+      const backdrop = document.getElementById("catalog-backdrop");
+      drawer.classList.toggle("active");
+      backdrop.classList.toggle("active");
+    }
+
+    function copiarTextoGuia(btn) {
+      const snippet = btn.closest(".guide-card").querySelector(".guide-snippet").innerText;
+      navigator.clipboard.writeText(snippet).then(() => {
+        const originalText = btn.textContent;
+        btn.textContent = "¡Copiado!";
+        btn.style.color = "var(--success)";
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.style.color = "";
+        }, 1500);
+      });
+    }
+
+    /* ---------- Tema ---------- */
     function applyTheme(theme) {
       document.documentElement.classList.toggle("light", theme === "light");
       localStorage.setItem("jub-theme", theme);
@@ -298,7 +468,11 @@
         event.preventDefault();
         document.getElementById("user-input").focus();
       }
-      if (event.key === "Escape") cerrarModal();
+      if (event.key === "Escape") {
+        cerrarModal();
+        const drawer = document.getElementById("catalog-drawer");
+        if (drawer.classList.contains("active")) toggleCatalogDrawer();
+      }
     });
 
     /* ---------- Modal ---------- */
@@ -404,7 +578,7 @@
         archivosAdjuntos = archivosAdjuntos.concat(files);
         renderizarArchivos();
       }
-      event.target.value = ""; // Limpiar input para permitir seleccionar el mismo archivo de nuevo
+      event.target.value = "";
     }
 
     function renderizarArchivos() {
@@ -422,8 +596,6 @@
       
       archivosAdjuntos.forEach((file, index) => {
         const esImagen = file.type.startsWith("image/");
-        
-        // Icono dependiendo del tipo
         const iconSvg = esImagen 
           ? `<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke-width="2"/><circle cx="8.5" cy="8.5" r="1.5" stroke-width="2"/><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m21 15-5-5L5 21"/></svg>`
           : `<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m9 18-6-6 6-6M15 6l6 6-6 6"/></svg>`;
@@ -550,7 +722,6 @@
 
       let textoVisual = mensajeTexto;
       
-      // Armar el texto de lo que visualmente pide el usuario si hay adjuntos
       if (archivosAdjuntos.length > 0 && !mensajeTexto) {
         textoVisual = `Procesa los siguientes archivos: ${archivosAdjuntos.map(f => f.name).join(', ')}`;
       } else if (archivosAdjuntos.length > 0) {
@@ -566,7 +737,6 @@
       input.value = "";
       resizeInput();
       
-      // Guardar lista actual y limpiar interfaz
       const archivosParaEnviar = [...archivosAdjuntos];
       archivosAdjuntos = [];
       renderizarArchivos();
@@ -611,7 +781,6 @@
         formData.append("message", mensajeTexto || "Procesa estos archivos");
         if (currentSessionId) formData.append("session_id", currentSessionId);
         
-        // Iterar y añadir múltiples archivos bajo la misma key "file"
         archivosParaEnviar.forEach((file) => {
           formData.append("file", file);
         });
@@ -713,8 +882,8 @@
               ¿En qué puedo ayudarte?
             </h1>
             <p class="mt-4 text-sm md:text-[15px] leading-7 text-[color:var(--muted)] max-w-xl">
-              Realiza consultas sobre tus datos, catálogos y procesos de análisis.
-              Escribe una instrucción en lenguaje natural y el agente se encargará del proceso.
+              Realiza consultas independientes sobre tus datos, catálogos y procesos de análisis.
+              Escribe una instrucción en lenguaje natural o consulta la guía superior.
             </p>
           </div>
           ${SUGGESTIONS_HTML}
@@ -726,12 +895,10 @@
       input.focus();
     }
 
-    // Inicialización al cargar la página
     setStatus("ok");
     input.focus();
     cargarHistorialConversaciones();
 
-    // Inyectar las sugerencias la primera vez para asegurar consistencia si la página recarga normal
     const welcomeSection = document.getElementById("welcome");
     if (welcomeSection && !welcomeSection.querySelector('.suggestions-grid')) {
       welcomeSection.insertAdjacentHTML('beforeend', SUGGESTIONS_HTML);
