@@ -182,7 +182,8 @@
     const BACKEND_URL = "http://localhost:8091/chat";
     let chatToDeleteId = null;
     let currentSessionId = null; 
-const SUGGESTIONS_HTML = `
+
+    const SUGGESTIONS_HTML = `
       <div class="suggestions-grid grid grid-cols-1 md:grid-cols-2 gap-3 mt-10 max-w-2xl mx-auto">
         
         <!-- 1. Convertir CSV a JSON -->
@@ -191,7 +192,7 @@ const SUGGESTIONS_HTML = `
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M7 4.5h7l4 4v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z"/><path stroke-width="1.7" stroke-linecap="round" d="M9.5 13.5h5M9.5 16.5h3"/></svg>
           </span>
           <span>
-            <div class="text-sm font-medium mb-1">1. Convertir CSV a JSON</div>
+            <div class="text-sm font-medium mb-1">Convertir CSV a JSON</div>
             <div class="text-xs leading-5 text-[color:var(--muted)]">Genera catalogs.json y data_records.json desde un CSV.</div>
           </span>
         </button>
@@ -202,7 +203,7 @@ const SUGGESTIONS_HTML = `
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="2.6" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M5 6v12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6M5 12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6"/></svg>
           </span>
           <span>
-            <div class="text-sm font-medium mb-1">2. Ver archivos generados</div>
+            <div class="text-sm font-medium mb-1">Ver archivos generados</div>
             <div class="text-xs leading-5 text-[color:var(--muted)]">Lista los catálogos y registros JSON disponibles.</div>
           </span>
         </button>
@@ -213,7 +214,7 @@ const SUGGESTIONS_HTML = `
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M4.5 12c1.8-4.2 5-6.3 7.5-6.3s5.7 2.1 7.5 6.3c-1.8 4.2-5 6.3-7.5 6.3S6.3 16.2 4.5 12Z"/></svg>
           </span>
           <span>
-            <div class="text-sm font-medium mb-1">3. Indexar Observatorio</div>
+            <div class="text-sm font-medium mb-1">Indexar Observatorio</div>
             <div class="text-xs leading-5 text-[color:var(--muted)]">Crea el contenedor raíz que se usará como base para los siguientes recursos.</div>
           </span>
         </button>
@@ -224,7 +225,7 @@ const SUGGESTIONS_HTML = `
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg>
           </span>
           <span>
-            <div class="text-sm font-medium mb-1">4. Indexar Catálogos</div>
+            <div class="text-sm font-medium mb-1">Indexar Catálogos</div>
             <div class="text-xs leading-5 text-[color:var(--muted)]">Sube catálogos (Spatial, Temporal, etc.) y los enlaza al Observatorio por niveles STORI.</div>
           </span>
         </button>
@@ -235,7 +236,7 @@ const SUGGESTIONS_HTML = `
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M20 7 12 3 4 7v10l8 4 8-4V7Z"/><path stroke-width="1.7" stroke-linecap="round" d="M4 7l8 4 8-4M12 11v10"/></svg>
           </span>
           <span>
-            <div class="text-sm font-medium mb-1">5. Indexar DataSource</div>
+            <div class="text-sm font-medium mb-1">Indexar DataSource</div>
             <div class="text-xs leading-5 text-[color:var(--muted)]">Configura la fuente de datos y hace bulk-ingest de las filas mapeadas.</div>
           </span>
         </button>
@@ -246,7 +247,7 @@ const SUGGESTIONS_HTML = `
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M7 4.5h7l4 4v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z"/></svg>
           </span>
           <span>
-            <div class="text-sm font-medium mb-1">6. Indexar Products</div>
+            <div class="text-sm font-medium mb-1">Indexar Products</div>
             <div class="text-xs leading-5 text-[color:var(--muted)]">Crea artefactos con identidad propia y los enlaza al Observatorio activo.</div>
           </span>
         </button>
@@ -257,13 +258,13 @@ const SUGGESTIONS_HTML = `
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/></svg>
           </span>
           <span>
-            <div class="text-sm font-medium mb-1">7. Indexar Completo</div>
+            <div class="text-sm font-medium mb-1">Indexar Completo</div>
             <div class="text-xs leading-5 text-[color:var(--muted)]">Ejecuta de una sola vez todo el aprovisionamiento (Observatorio, Catálogos, DataSource, Records y Products).</div>
           </span>
         </button>
 
       </div>`;
-    
+      
       /* ---------- Tema ---------- */
     function applyTheme(theme) {
       document.documentElement.classList.toggle("light", theme === "light");
