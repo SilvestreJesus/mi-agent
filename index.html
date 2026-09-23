@@ -97,7 +97,7 @@
           <path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/>
           <path stroke-width="1.8" stroke-linecap="round" d="M12 6v12"/>
         </svg>
-        <span class="hidden sm:inline">Guía </span>
+        <span class="hidden sm:inline">Guía</span>
       </button>
     </header>
 
@@ -258,7 +258,8 @@ user_id: usr_system</pre>
 observatory_id: obs_tu_id_aqui
 observatory_title: Emisiones de Benceno
 country: México
-edition: '2024'</pre>
+edition: '2024'
+</pre>
       </div>
 
       <!-- Tarjeta Guía 5 -->
@@ -273,8 +274,7 @@ edition: '2024'</pre>
 datasource_name: Fuente Emisiones Benceno
 datasource_description: Datos crudos desde CSV
 source_id: src_benceno
-observatory_id: obs_tu_id_aqui
-</pre>
+observatory_id: obs_tu_id_aqui</pre>
       </div>
 
       <!-- Tarjeta Guía 6 -->
@@ -290,8 +290,8 @@ observatory_id: obs_tu_id_aqui
 product_name_base: Emisiones de Benceno
 product_desc_base: Dataset anual de benceno
 product_id_base: benceno-retc
-start_year: '2000'
-end_year: '2026'</pre>
+start_year: 2000
+end_year: 2026</pre>
       </div>
 
       <!-- Tarjeta Guía 7 -->
@@ -318,8 +318,8 @@ source_id: src_emisiones_benceno
 product_name_base: Emisiones de Benceno
 product_description_base: Dataset de reporte anual
 product_id_base: benceno-retc
-start_year: '2000'
-end_year: '2026'</pre>
+start_year: 2000
+end_year: 2026</pre>
       </div>
 
       <!-- Tarjeta Guía 8: Consultas Analíticas DSL -->
@@ -459,7 +459,7 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
         </button>
 
         <!-- 4. Botón Separado: Indexar Catálogos -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra y enlaza los catálogos en bulk al observatorio existente:\\n\\n[Catálogos]\\nobservatory_id: \\nobservatory_title: \\ncountry: México\\nedition: \\'2024\\'\\')">
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra y enlaza los catálogos en bulk al observatorio existente:\\n\\n[Catálogos]\\nobservatory_id: \\nobservatory_title: \\ncountry: México\\nedition: \\'2024\\'\\n')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg>
           </span>
@@ -470,7 +470,7 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
         </button>
 
         <!-- 5. Botón Separado: Indexar DataSource y Records -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra el DataSource e ingesta los records:\\n\\n[DataSource]\\ndatasource_name: \\ndatasource_description: \\nsource_id: src_\\nobservatory_id: \\')">
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra el DataSource e ingesta los records:\\n\\n[DataSource]\\ndatasource_name: \\ndatasource_description: \\nsource_id: src_\\nobservatory_id: \\n')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M20 7 12 3 4 7v10l8 4 8-4V7Z"/><path stroke-width="1.7" stroke-linecap="round" d="M4 7l8 4 8-4M12 11v10"/></svg>
           </span>
@@ -491,29 +491,7 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
           </span>
         </button>
 
-        <!-- 7. Ver Observatorios Indexados -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Lista los observatorios que ya tengo indexados en JUB.')">
-          <span class="suggestion-icon">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2.5" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M8 9h8M8 12.5h8M8 16h5"/></svg>
-          </span>
-          <span>
-            <div class="text-sm font-medium mb-1">Ver Observatorios Indexados</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Consulta cuáles observatorios ya existen y sus ids.</div>
-          </span>
-        </button>
-
-        <!-- 8. Ver Estado de Conexión -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('¿Está JUB conectado al servidor en este momento?')">
-          <span class="suggestion-icon">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M12 20.5v-2M6.5 15a7.8 7.8 0 0 1 11 0M3.5 11.5a12.2 12.2 0 0 1 17 0"/><circle cx="12" cy="18.5" r="1" fill="currentColor"/></svg>
-          </span>
-          <span>
-            <div class="text-sm font-medium mb-1">Ver Estado de Conexión</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Confirma si hay comunicación activa con el servidor.</div>
-          </span>
-        </button>
-
-        <!-- 9. Indexar Completo / Integral -->
+        <!-- 7. Indexar Completo / Integral -->
         <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Ejecuta el flujo completo e integral en JUB de forma automatizada:\\n\\n[Observatorio]\\nobservatory_title: Emisiones de Benceno RETC México\\nobservatory_description: Registro de emisiones y transferencia de contaminantes por municipio en México.\\ninstitution: SEMARNAT\\nedition: \\'2024\\'\\ncountry: México\\nimage_url: https://cdn.pixabay.com/photo/2024/03/13/17/57/artificial-intelligence-8631497_1280.jpg\\n\\n[DataSource]\\ndatasource_name: DataSource Emisiones Benceno\\ndatasource_description: Datos crudos de emisiones anuales procesados desde CSV.\\nsource_id: src_emisiones_benceno\\n\\n[Producto]\\nproduct_name_base: Emisiones de Benceno\\nproduct_description_base: Dataset de reporte anual de benceno\\nproduct_id_base: benceno-retc\\nstart_year: \\'2000\\'\\nend_year: \\'2026\\'\\n')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/></svg>
