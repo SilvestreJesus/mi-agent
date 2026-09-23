@@ -97,7 +97,7 @@
           <path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/>
           <path stroke-width="1.8" stroke-linecap="round" d="M12 6v12"/>
         </svg>
-        <span class="hidden sm:inline">Guía y Catálogo</span>
+        <span class="hidden sm:inline">Guía </span>
       </button>
     </header>
 
@@ -194,6 +194,31 @@
         <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Convierte el archivo CSV adjunto a formato JSON estructurado para JUB.</pre>
       </div>
 
+      <!-- Tarjeta Guía 1.1: Otras formas de pedirlo -->
+      <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="font-semibold text-[color:var(--text)]">1.1 Otras formas de pedir la conversión</span>
+        </div>
+        <div class="space-y-2">
+          <div class="flex items-center justify-between gap-2 p-2 rounded bg-[color:var(--surface-2)]">
+            <span class="guide-snippet mono text-[color:var(--muted)]" style="border:none;padding:0;background:transparent">Pasa este CSV a JSON, por favor.</span>
+            <button onclick="copiarTextoGuia(this, true)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium shrink-0" style="border-color:var(--border)">Copiar</button>
+          </div>
+          <div class="flex items-center justify-between gap-2 p-2 rounded bg-[color:var(--surface-2)]">
+            <span class="guide-snippet mono text-[color:var(--muted)]" style="border:none;padding:0;background:transparent">Necesito convertido a JSON.</span>
+            <button onclick="copiarTextoGuia(this, true)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium shrink-0" style="border-color:var(--border)">Copiar</button>
+          </div>
+          <div class="flex items-center justify-between gap-2 p-2 rounded bg-[color:var(--surface-2)]">
+            <span class="guide-snippet mono text-[color:var(--muted)]" style="border:none;padding:0;background:transparent">Transforma este archivo en catalogs.json y data_records.json.</span>
+            <button onclick="copiarTextoGuia(this, true)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium shrink-0" style="border-color:var(--border)">Copiar</button>
+          </div>
+          <div class="flex items-center justify-between gap-2 p-2 rounded bg-[color:var(--surface-2)]">
+            <span class="guide-snippet mono text-[color:var(--muted)]" style="border:none;padding:0;background:transparent">Prepárame este CSV para poder indexarlo después.</span>
+            <button onclick="copiarTextoGuia(this, true)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium shrink-0" style="border-color:var(--border)">Copiar</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Tarjeta Guía 2 -->
       <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
         <div class="flex items-center justify-between mb-1.5">
@@ -233,8 +258,7 @@ user_id: usr_system</pre>
 observatory_id: obs_tu_id_aqui
 observatory_title: Emisiones de Benceno
 country: México
-edition: '2024'
-csv_filename: normalized_data.csv</pre>
+edition: '2024'</pre>
       </div>
 
       <!-- Tarjeta Guía 5 -->
@@ -250,7 +274,7 @@ datasource_name: Fuente Emisiones Benceno
 datasource_description: Datos crudos desde CSV
 source_id: src_benceno
 observatory_id: obs_tu_id_aqui
-csv_filename: normalized_data.csv</pre>
+</pre>
       </div>
 
       <!-- Tarjeta Guía 6 -->
@@ -325,6 +349,43 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
         </div>
         <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Analiza la imagen adjunta y extrae las métricas clave para incorporarlas al observatorio.</pre>
       </div>
+
+      <!-- Tarjeta Guía 11: Ver Observatorios Indexados -->
+      <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="font-semibold text-[color:var(--text)]">11. Ver Observatorios Indexados</span>
+          <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
+        </div>
+        <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Lista los observatorios que ya tengo indexados en JUB.</pre>
+        <div class="space-y-2 mt-2">
+          <div class="flex items-center justify-between gap-2 p-2 rounded bg-[color:var(--surface-2)]">
+            <span class="guide-snippet mono text-[color:var(--muted)]" style="border:none;padding:0;background:transparent">¿Qué observatorios existen hasta ahora?</span>
+            <button onclick="copiarTextoGuia(this, true)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium shrink-0" style="border-color:var(--border)">Copiar</button>
+          </div>
+          <div class="flex items-center justify-between gap-2 p-2 rounded bg-[color:var(--surface-2)]">
+            <span class="guide-snippet mono text-[color:var(--muted)]" style="border:none;padding:0;background:transparent">Dame el id del observatorio de Emisiones de Benceno.</span>
+            <button onclick="copiarTextoGuia(this, true)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium shrink-0" style="border-color:var(--border)">Copiar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tarjeta Guía 12: Ver Estado de Conexión -->
+      <div class="guide-card p-3 rounded-xl border bg-[color:var(--surface)]" style="border-color:var(--border)">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="font-semibold text-[color:var(--text)]">12. Ver Estado de Conexión</span>
+          <button onclick="copiarTextoGuia(this)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium" style="border-color:var(--border)">Copiar</button>
+        </div>
+        <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">¿Está JUB conectado al servidor en este momento?</pre>
+        <div class="space-y-2 mt-2">
+          <div class="flex items-center justify-between gap-2 p-2 rounded bg-[color:var(--surface-2)]">
+            <span class="guide-snippet mono text-[color:var(--muted)]" style="border:none;padding:0;background:transparent">Revisa si hay conexión activa con el backend.</span>
+            <button onclick="copiarTextoGuia(this, true)" class="copy-btn px-2 py-1 rounded border text-[10px] font-medium shrink-0" style="border-color:var(--border)">Copiar</button>
+          </div>
+        </div>
+        <p class="text-[color:var(--muted)] leading-relaxed mt-2">
+          El punto de color junto a "JUB activo" (arriba y abajo del chat) también indica esto: verde conectado, amarillo procesando, rojo sin conexión.
+        </p>
+      </div>
     </div>
   </aside>
 
@@ -398,7 +459,7 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
         </button>
 
         <!-- 4. Botón Separado: Indexar Catálogos -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra y enlaza los catálogos en bulk al observatorio existente:\\n\\n[Catálogos]\\nobservatory_id: \\nobservatory_title: \\ncountry: México\\nedition: \\'2024\\'\\ncsv_filename: normalized_data.csv')">
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra y enlaza los catálogos en bulk al observatorio existente:\\n\\n[Catálogos]\\nobservatory_id: \\nobservatory_title: \\ncountry: México\\nedition: \\'2024\\'\\')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg>
           </span>
@@ -409,7 +470,7 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
         </button>
 
         <!-- 5. Botón Separado: Indexar DataSource y Records -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra el DataSource e ingesta los records:\\n\\n[DataSource]\\ndatasource_name: \\ndatasource_description: \\nsource_id: src_\\nobservatory_id: \\ncsv_filename: normalized_data.csv')">
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra el DataSource e ingesta los records:\\n\\n[DataSource]\\ndatasource_name: \\ndatasource_description: \\nsource_id: src_\\nobservatory_id: \\')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M20 7 12 3 4 7v10l8 4 8-4V7Z"/><path stroke-width="1.7" stroke-linecap="round" d="M4 7l8 4 8-4M12 11v10"/></svg>
           </span>
@@ -430,8 +491,30 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
           </span>
         </button>
 
-        <!-- 7. Indexar Completo / Integral -->
-        <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Ejecuta el flujo completo e integral en JUB de forma automatizada:\\n\\n[Observatorio]\\nobservatory_title: Emisiones de Benceno RETC México\\nobservatory_description: Registro de emisiones y transferencia de contaminantes por municipio en México.\\ninstitution: SEMARNAT\\nedition: \\'2024\\'\\ncountry: México\\nimage_url: https://cdn.pixabay.com/photo/2024/03/13/17/57/artificial-intelligence-8631497_1280.jpg\\n\\n[DataSource]\\ndatasource_name: DataSource Emisiones Benceno\\ndatasource_description: Datos crudos de emisiones anuales procesados desde CSV.\\nsource_id: src_emisiones_benceno\\n\\n[Producto]\\nproduct_name_base: Emisiones de Benceno\\nproduct_description_base: Dataset de reporte anual de benceno\\nproduct_id_base: benceno-retc\\nstart_year: \\'2000\\'\\nend_year: \\'2026\\'\\n\\n[Adjuntos: normalized_data.csv]')">
+        <!-- 7. Ver Observatorios Indexados -->
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Lista los observatorios que ya tengo indexados en JUB.')">
+          <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2.5" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M8 9h8M8 12.5h8M8 16h5"/></svg>
+          </span>
+          <span>
+            <div class="text-sm font-medium mb-1">Ver Observatorios Indexados</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Consulta cuáles observatorios ya existen y sus ids.</div>
+          </span>
+        </button>
+
+        <!-- 8. Ver Estado de Conexión -->
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('¿Está JUB conectado al servidor en este momento?')">
+          <span class="suggestion-icon">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M12 20.5v-2M6.5 15a7.8 7.8 0 0 1 11 0M3.5 11.5a12.2 12.2 0 0 1 17 0"/><circle cx="12" cy="18.5" r="1" fill="currentColor"/></svg>
+          </span>
+          <span>
+            <div class="text-sm font-medium mb-1">Ver Estado de Conexión</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Confirma si hay comunicación activa con el servidor.</div>
+          </span>
+        </button>
+
+        <!-- 9. Indexar Completo / Integral -->
+        <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Ejecuta el flujo completo e integral en JUB de forma automatizada:\\n\\n[Observatorio]\\nobservatory_title: Emisiones de Benceno RETC México\\nobservatory_description: Registro de emisiones y transferencia de contaminantes por municipio en México.\\ninstitution: SEMARNAT\\nedition: \\'2024\\'\\ncountry: México\\nimage_url: https://cdn.pixabay.com/photo/2024/03/13/17/57/artificial-intelligence-8631497_1280.jpg\\n\\n[DataSource]\\ndatasource_name: DataSource Emisiones Benceno\\ndatasource_description: Datos crudos de emisiones anuales procesados desde CSV.\\nsource_id: src_emisiones_benceno\\n\\n[Producto]\\nproduct_name_base: Emisiones de Benceno\\nproduct_description_base: Dataset de reporte anual de benceno\\nproduct_id_base: benceno-retc\\nstart_year: \\'2000\\'\\nend_year: \\'2026\\'\\n')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/></svg>
           </span>
@@ -451,8 +534,10 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
       backdrop.classList.toggle("active");
     }
 
-    function copiarTextoGuia(btn) {
-      const snippet = btn.closest(".guide-card").querySelector(".guide-snippet").innerText;
+    function copiarTextoGuia(btn, esLineaSuelta) {
+      const snippet = esLineaSuelta
+        ? btn.previousElementSibling.innerText
+        : btn.closest(".guide-card").querySelector(".guide-snippet").innerText;
       navigator.clipboard.writeText(snippet).then(() => {
         const originalText = btn.textContent;
         btn.textContent = "¡Copiado!";
@@ -577,10 +662,22 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
     /* ---------- Input ---------- */
     const input = document.getElementById("user-input");
     const sendBtn = document.getElementById("send-btn");
+    const chatContainerEl = document.getElementById("chat-container");
+    const composerWrapEl = document.querySelector(".composer-wrap");
+
+    /* Mantiene el padding inferior del chat sincronizado con la altura real
+       del composer (que crece con el texto o con los chips de archivos),
+       para que siempre se pueda desplazar hasta ver el último contenido. */
+    function syncComposerPadding() {
+      if (!composerWrapEl || !chatContainerEl) return;
+      const altura = composerWrapEl.offsetHeight;
+      chatContainerEl.style.paddingBottom = (altura + 24) + "px";
+    }
 
     function resizeInput() {
       input.style.height = "auto";
       input.style.height = Math.min(input.scrollHeight, 220) + "px";
+      syncComposerPadding();
     }
 
     input.addEventListener("input", resizeInput);
@@ -596,7 +693,18 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
       input.value = texto;
       resizeInput();
       input.focus();
+      // Deja visible el final del texto insertado y recalcula el espacio disponible.
+      requestAnimationFrame(() => {
+        syncComposerPadding();
+        chatContainerEl.scrollTop = chatContainerEl.scrollHeight;
+      });
     }
+
+    if (composerWrapEl && "ResizeObserver" in window) {
+      new ResizeObserver(syncComposerPadding).observe(composerWrapEl);
+    }
+    window.addEventListener("resize", syncComposerPadding);
+    syncComposerPadding();
 
     /* ---------- Archivos Adjuntos (Múltiples) ---------- */
     let archivosAdjuntos = [];
@@ -617,6 +725,7 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
       if (archivosAdjuntos.length === 0) {
         container.classList.add("hidden");
         container.classList.remove("flex");
+        syncComposerPadding();
         return;
       }
       
@@ -642,6 +751,8 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
           </div>
         `);
       });
+
+      syncComposerPadding();
     }
 
     function quitarArchivo(index) {
@@ -732,6 +843,7 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
           }
         });
 
+        syncComposerPadding();
         chatContainer.scrollTop = chatContainer.scrollHeight;
       } catch (e) {
         console.error("Error al cargar la sesión", e);
@@ -882,6 +994,7 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
 
       sendBtn.disabled = false;
       input.focus();
+      syncComposerPadding();
       chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
@@ -922,6 +1035,7 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
       input.value = "";
       resizeInput();
       input.focus();
+      syncComposerPadding();
     }
 
     setStatus("ok");
