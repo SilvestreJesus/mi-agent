@@ -215,48 +215,13 @@ async def chat(
     base = str(request.base_url).rstrip("/")
     msg_lower = message.lower()
 
-    # 1. Interceptar solicitud de Conexión, Estado o Listado de Observatorios
-    if not file and any(k in msg_lower for k in ["conectado", "conexion", "conexión", "observatorios", "observatorio", "indexados", "existen"]):
+    # 1. Interceptar ÚNICAMENTE solicitudes explícitas de estado de conexión o salud del backend
+    if not file and any(k in msg_lower for k in ["está conectado", "esta conectado", "conexión activa", "conexion activa", "backend"]):
         token = await _get_jub_token()
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
-        observatorios_info = []
-        conexion_exitosa = False
-        
-        try:
-            async with httpx.AsyncClient(base_url=JUB_URL, timeout=10.0) as client:
-                res = await client.get("/api/v2/observatories", headers=headers)
-                if res.status_code in (200, 201):
-                    conexion_exitosa = True
-                    data_resp = res.json()
-                    if isinstance(data_resp, list):
-                        observatorios_info = data_resp
-                    elif isinstance(data_resp, dict):
-                        observatorios_info = data_resp.get("observatories", [data_resp])
-        except Exception:
-            pass
-
-        if not observatorios_info and os.path.exists("state.json"):
-            try:
-                with open("state.json", "r", encoding="utf-8") as f:
-                    content_state = json.load(f)
-                    observatorios_info = [content_state] if isinstance(content_state, dict) else content_state
-                conexion_exitosa = True
-            except Exception:
-                pass
+        conexion_exitosa = token is not None
 
         if conexion_exitosa:
-            respuesta_texto = "── Conexión con JUB activa ─────────────────────────────\n\n"
-            if observatorios_info:
-                respuesta_texto += f"Se encontraron {len(observatorios_info)} observatorio(s) registrado(s):\n\n"
-                for o in observatorios_info:
-                    obs_id = o.get("observatory_id") or o.get("id") or "N/A"
-                    obs_title = o.get("title") or o.get("observatory_title") or "Sin título"
-                    meta = o.get("metadata", {})
-                    institution = meta.get("institution") or o.get("institution") or "N/A"
-                    edition = meta.get("edition") or o.get("edition") or "N/A"
-                    respuesta_texto += f"• ID: {obs_id}\n  Título: {obs_title}\n  Institución: {institution} ({edition})\n\n"
-            else:
-                respuesta_texto += "Conexión establecida exitosamente con JUB API. No hay observatorios registrados en este momento."
+            respuesta_texto = f"── Conexión con JUB activa ─────────────────────────────\n\nEl sistema está correctamente conectado a la API de JUB en {JUB_URL}."
         else:
             respuesta_texto = f"── Sin conexión con el servidor ────────────────────────\n\nNo fue posible establecer comunicación con el servidor JUB en {JUB_URL}."
 
@@ -272,7 +237,7 @@ async def chat(
         )
 
     # 2. Interceptar solicitud de Auditoría mostrando ÚNICAMENTE archivos JSON (ocultando CSVs)
-    if not file and any(k in msg_lower for k in ["archivos", "json", "generados", "muéstrame"]):
+    if not file and any(k in msg_lower for k in ["archivos json", "json generados", "muéstrame los archivos"]):
         json_archivos = []
         try:
             mcp_files = await listar_archivos_mcp()
@@ -341,7 +306,7 @@ async def chat(
                     active_session_files[session_id].append(f.filename)
                     file_info_list.append(f"[Archivo CSV guardado exitosamente en '/app/sources/{f.filename}'. Usa 'csv_filename=\"{f.filename}\"']")
 
-    # ── Detección automática de URLs de Imágenes en el texto del mensaje ──
+    # ── Detección automática de URLs de Imágenes externas (Pexels, Pixabay, etc.) ──
     detected_urls = URL_IMAGE_PATTERN.findall(message)
     if detected_urls:
         if session_id not in active_session_images:
@@ -352,7 +317,6 @@ async def chat(
                 try:
                     img_resp = await url_client.get(url_img)
                     if img_resp.status_code == 200:
-                        # Extraer un nombre de archivo limpio desde la URL
                         parsed_name = url_img.split("?")[0].split("/")[-1]
                         if not any(parsed_name.endswith(ext) for ext in IMAGE_EXTENSIONS):
                             parsed_name = f"web_image_{uuid.uuid4().hex[:6]}.jpg"
@@ -379,6 +343,7 @@ async def chat(
     file_info = "\n\n" + "\n".join(file_info_list) if file_info_list else ""
     prompt_completo = message + file_info
 
+    # Ejecutar al agente inteligente de Ollama/MCP para consultas como listar observatorios, productos, etc.
     result = await agent.run(prompt_completo)
     respuesta_texto = getattr(result, "text", str(result))
 

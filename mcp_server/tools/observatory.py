@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 from fastmcp import FastMCP
 
-from config import DATA_RECORDS_FILE, JUB_PASS, JUB_URL, JUB_USER, STATE_FILE
+from config import JUB_PASS, JUB_URL, JUB_USER, STATE_FILE
 
 SOURCES_DIR = Path("sources")
 IMAGES_DIR = Path("images")
@@ -47,11 +47,9 @@ def _get_latest_catalog() -> Optional[Path]:
     """Busca el archivo catalogs_*.json más reciente en la carpeta data/."""
     catalogs = list(DATA_DIR.glob("catalogs_*.json"))
     if not catalogs:
-        # Si no hay con prefijo catalogs_, busca cualquiera que se llame catalogs.json
         fallback = DATA_DIR / "catalogs.json"
         return fallback if fallback.exists() else None
     
-    # Ordenar por fecha de modificación (el más nuevo primero)
     catalogs.sort(key=lambda f: f.stat().st_mtime, reverse=True)
     return catalogs[0]
 
@@ -86,11 +84,10 @@ def register(mcp: FastMCP):
         image_url: Optional[str] = None,
         catalogs_filename: Optional[str] = "catalogs.json",
     ) -> str:
-        """Paso completo equivalente al tutorial JUB."""
+        """Crea o recupera el Observatorio, registra catálogos en bulk de forma tolerante a duplicados y mapea índices."""
         
         target_catalogs_path = resolve_existing_path(catalogs_filename)
 
-        # MAGIA AQUÍ: Si no existe el archivo exacto o si el agente dejó el nombre por defecto
         if not target_catalogs_path.exists() or catalogs_filename == "catalogs.json":
             latest_catalog = _get_latest_catalog()
             if latest_catalog:
@@ -98,7 +95,7 @@ def register(mcp: FastMCP):
             else:
                 return f"Error: No se encontró ningún archivo de catálogos en {DATA_DIR}."
 
-        async with httpx.AsyncClient(base_url=JUB_URL, timeout=30.0) as client:
+        async with httpx.AsyncClient(base_url=JUB_URL, timeout=60.0) as client:
             headers = {}
 
             # 1. Autenticación 
@@ -119,7 +116,7 @@ def register(mcp: FastMCP):
             except Exception as e:
                 print(f"Advertencia de autenticación: {e}")
 
-            # 2. Paso 1: Crear el Observatorio 
+            # 2. Paso 1: Crear o verificar Observatorio usando el endpoint de setup v2
             obs_payload = {
                 "observatory_id": observatory_id,
                 "title": title,
@@ -127,23 +124,23 @@ def register(mcp: FastMCP):
                 "user_id": user_id,
                 "metadata": metadata or {},
             }
-            
             if image_url:
                 obs_payload["image_url"] = image_url
 
             obs_res = await client.post(
-                "/api/v2/observatories", json=obs_payload, headers=headers
+                "/api/v2/observatories/setup", json=obs_payload, headers=headers
             )
 
-            if obs_res.status_code not in (200, 201) and not _is_conflict(
-                obs_res.status_code, obs_res.text
-            ):
-                return (
-                    f"Error al crear el Observatorio ({obs_res.status_code}):"
-                    f" {obs_res.text}"
-                )
+            resolved_obs_id = observatory_id
+            if obs_res.status_code in (200, 201):
+                res_json = obs_res.json()
+                resolved_obs_id = res_json.get("observatory_id") or observatory_id
+            elif _is_conflict(obs_res.status_code, obs_res.text):
+                print(f"El observatorio '{observatory_id}' ya existe. Continuando con los catálogos...")
+            else:
+                return f"Error al crear el Observatorio ({obs_res.status_code}): {obs_res.text}"
 
-            # 3. Paso 2 y 3: Cargar y registrar catálogos en Bulk
+            # 3. Paso 2 y 3: Cargar y registrar catálogos en Bulk de manera tolerante a duplicados
             with open(target_catalogs_path, encoding="utf-8") as f:
                 catalogs_data = json.load(f)
 
@@ -154,27 +151,34 @@ def register(mcp: FastMCP):
             )
 
             bulk_res = await client.post(
-                f"/api/v2/observatories/{observatory_id}/catalogs/bulk",
+                f"/api/v2/observatories/{resolved_obs_id}/catalogs/bulk",
                 json=bulk_payload,
                 headers=headers,
             )
 
-            if bulk_res.status_code not in (200, 201):
-                return (
-                    "Error en la ingesta bulk de catálogos"
-                    f" ({bulk_res.status_code}): {bulk_res.text}"
-                )
+            catalog_ids = []
+            if bulk_res.status_code in (200, 201):
+                bulk_json = bulk_res.json()
+                catalog_ids = bulk_json.get("catalog_ids", [])
+            elif _is_conflict(bulk_res.status_code, bulk_res.text):
+                print("Los catálogos ya estaban registrados. Recuperando listado existente...")
+            else:
+                return f"Error en la ingesta bulk de catálogos ({bulk_res.status_code}): {bulk_res.text}"
 
-            bulk_json = bulk_res.json()
-            catalog_ids = bulk_json.get("catalog_ids", [])
+            # Si la lista de IDs vino vacía por conflicto previo, los consultamos directamente del observatorio
+            if not catalog_ids:
+                get_cats = await client.get(f"/api/v2/observatories/{resolved_obs_id}/catalogs", headers=headers)
+                if get_cats.status_code == 200:
+                    existing_cats = get_cats.json()
+                    catalog_ids = [c.get("catalog_id") or c.get("id") for c in existing_cats if c.get("catalog_id") or c.get("id")]
 
-            # Si el endpoint bulk no enlaza niveles explícitamente, los enlazamos
+            # Asegurar niveles explícitos si procede
             for cat_dict, cat_id in zip(bulk_payload, catalog_ids):
                 cat_type = cat_dict.get("catalog_type", "INTEREST")
                 level = CATALOG_LEVELS.get(cat_type, 2)
 
                 await client.post(
-                    f"/api/v2/observatories/{observatory_id}/catalogs",
+                    f"/api/v2/observatories/{resolved_obs_id}/catalogs",
                     json={"catalog_id": cat_id, "level": level},
                     headers=headers,
                 )
@@ -195,7 +199,7 @@ def register(mcp: FastMCP):
 
             # 5. Guardar el estado sobrescribiendo el archivo anterior
             state = {
-                "observatory_id": observatory_id,
+                "observatory_id": resolved_obs_id,
                 "catalog_ids": {
                     cat.get("name", f"cat_{i}"): cid
                     for i, (cat, cid) in enumerate(
@@ -205,6 +209,16 @@ def register(mcp: FastMCP):
                 "item_index": item_index,
             }
 
+            if STATE_FILE.exists():
+                try:
+                    with open(STATE_FILE, encoding="utf-8") as sf:
+                        old_state = json.load(sf)
+                        if isinstance(old_state, dict):
+                            old_state.update(state)
+                            state = old_state
+                except Exception:
+                    pass
+
             STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
             with open(STATE_FILE, "w", encoding="utf-8") as f:
                 json.dump(state, f, indent=2, ensure_ascii=False)
@@ -212,12 +226,12 @@ def register(mcp: FastMCP):
             return json.dumps(
                 {
                     "status": "success",
-                    "observatory_id": observatory_id,
+                    "observatory_id": resolved_obs_id,
                     "catalogs_registered": len(catalog_ids),
                     "indexed_items": len(item_index),
                     "catalogs_file_used": target_catalogs_path.name,
                     "state_file": str(STATE_FILE.resolve()),
                 },
                 ensure_ascii=False,
-                indent=2
+                indent=2,
             )

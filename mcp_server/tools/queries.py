@@ -68,10 +68,13 @@ def register(mcp: FastMCP):
 
         # Fallback al archivo de estado si no se proveen IDs
         if (not target_obs_id or not target_src_id) and STATE_FILE.exists():
-            with open(STATE_FILE, encoding="utf-8") as f:
-                state = json.load(f)
-                target_obs_id = target_obs_id or state.get("observatory_id")
-                target_src_id = target_src_id or state.get("source_id")
+            try:
+                with open(STATE_FILE, encoding="utf-8") as f:
+                    state = json.load(f)
+                    target_obs_id = target_obs_id or state.get("observatory_id")
+                    target_src_id = target_src_id or state.get("source_id")
+            except Exception:
+                pass
 
         if not target_obs_id and not target_src_id:
             return "Error: No se proporcionaron IDs válidos y no hay contexto en .state.json."
@@ -95,7 +98,7 @@ def register(mcp: FastMCP):
 
     @mcp.tool(name="consultar_records_dsl")
     async def consultar_records_dsl(
-        query: str,  # Sin valor por defecto. El usuario/agente DEBE especificarlo.
+        query: str,
         limit: int = 10,
         skip: int = 0
     ) -> str:
@@ -109,8 +112,11 @@ def register(mcp: FastMCP):
         if not STATE_FILE.exists():
             return f"Error: No se encontró el archivo de estado ({STATE_FILE}) para deducir el source_id."
 
-        with open(STATE_FILE, encoding="utf-8") as f:
-            state = json.load(f)
+        try:
+            with open(STATE_FILE, encoding="utf-8") as f:
+                state = json.load(f)
+        except Exception as e:
+            return f"Error leyendo .state.json: {str(e)}"
 
         source_id = state.get("source_id")
         if not source_id:
@@ -119,7 +125,6 @@ def register(mcp: FastMCP):
         async with httpx.AsyncClient(base_url=JUB_URL, timeout=60.0) as client:
             token = await _get_auth_token(client)
             headers = {"Authorization": f"Bearer {token}"} if token else {}
-
 
             payload = {
                 "query": query,
@@ -148,8 +153,11 @@ def register(mcp: FastMCP):
         Lista los productos vinculados a un Observatorio específico.
         """
         if not observatory_id and STATE_FILE.exists():
-            with open(STATE_FILE, encoding="utf-8") as f:
-                observatory_id = json.load(f).get("observatory_id")
+            try:
+                with open(STATE_FILE, encoding="utf-8") as f:
+                    observatory_id = json.load(f).get("observatory_id")
+            except Exception:
+                pass
 
         if not observatory_id:
             return "Error: Se requiere un 'observatory_id' o haber indexado previamente (.state.json)."
@@ -174,8 +182,11 @@ def register(mcp: FastMCP):
         Lista los catálogos enlazados a un Observatorio específico.
         """
         if not observatory_id and STATE_FILE.exists():
-            with open(STATE_FILE, encoding="utf-8") as f:
-                observatory_id = json.load(f).get("observatory_id")
+            try:
+                with open(STATE_FILE, encoding="utf-8") as f:
+                    observatory_id = json.load(f).get("observatory_id")
+            except Exception:
+                pass
 
         if not observatory_id:
             return "Error: Se requiere un 'observatory_id' o haber indexado previamente (.state.json)."
