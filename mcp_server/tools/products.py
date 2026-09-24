@@ -15,6 +15,7 @@ def _is_conflict(status_code: int, detail: str) -> bool:
         for k in ("409", "403", "already", "duplicate", "exists", "forbidden")
     )
 
+
 def _generate_slug(text: str) -> str:
     """Convierte texto normal en un ID válido (ej. 'Benceno RETC' -> 'benceno-retc')"""
     return re.sub(r'[^a-z0-9]+', '-', text.lower()).strip('-')
@@ -32,7 +33,7 @@ def register(mcp: FastMCP):
     ) -> str:
         """
         Carga el observatory_id desde .state.json, crea el producto principal de dataset
-        y los productos anuales segmentados en JUB V2, los vincula al observatorio
+        y los productos anuales segmentados en JUB V2 mediante bulk, los vincula al observatorio
         y actualiza el archivo de estado.
         """
         if not product_name_base or not product_desc_base:
@@ -70,41 +71,46 @@ def register(mcp: FastMCP):
             except Exception as e:
                 print(f"Advertencia de autenticación: {e}")
 
-            # 2. Paso 1 — Creando Product de entrada 
+            # 2. Construir la lista completa de productos (Dataset principal + Años)
+            products_list = []
+            
+            # Producto principal de entrada
             entrada_id = f"prod-{base_slug}-dataset"
-            entrada_payload = {
+            products_list.append({
                 "product_id": entrada_id,
                 "name": f"Dataset {product_name_base} {start_year}-{end_year}",
                 "description": f"Dataset completo: {product_desc_base} para {start_year} a {end_year}.",
-                "observatory_id": observatory_id,
                 "catalog_item_ids": []
-            }
+            })
 
-            res = await client.post("/api/v2/products", json=entrada_payload, headers=headers)
-            if res.status_code not in (200, 201) and not _is_conflict(res.status_code, res.text):
-                print(f"Nota: El producto principal respondió {res.status_code}")
-
-            # 3. Paso 2 — Creando Products individuales por año
+            # Productos individuales por año
             years = list(range(start_year, end_year + 1))
             product_ids_by_year: Dict[str, str] = {}
 
             for year in years:
                 prod_id = f"prod-{base_slug}-{year}"
-                year_payload = {
+                products_list.append({
                     "product_id": prod_id,
                     "name": f"{product_name_base} — {year}",
                     "description": f"{product_desc_base} durante {year}.",
-                    "observatory_id": observatory_id,
                     "catalog_item_ids": []
-                }
+                })
+                product_ids_by_year[str(year)] = prod_id
 
-                r = await client.post("/api/v2/products", json=year_payload, headers=headers)
-                if r.status_code in (200, 201) or _is_conflict(r.status_code, r.text):
-                    product_ids_by_year[str(year)] = prod_id
-                else:
-                    print(f"Error creando producto para {year}: {r.text}")
+            # 3. Envío masivo mediante el endpoint /bulk del observatorio
+            res = await client.post(
+                f"/api/v2/observatories/{observatory_id}/products/bulk",
+                json={"products": products_list},
+                headers=headers
+            )
 
-            # 4. Actualizar el archivo .state.json idéntico al script
+            if res.status_code not in (200, 201) and not _is_conflict(res.status_code, res.text):
+                return json.dumps({
+                    "status": "error",
+                    "message": f"Error al registrar productos en bulk ({res.status_code}): {res.text}"
+                }, ensure_ascii=False)
+
+            # 4. Actualizar el archivo .state.json
             state["entrada_product_id"] = entrada_id
             state["product_ids"] = product_ids_by_year
 

@@ -105,8 +105,7 @@ def register(mcp: FastMCP):
             }, ensure_ascii=False)
 
 
-    # Herramienta para indexar por separado
-
+    # Herramienta para crear observatorio
     @mcp.tool(name="crear_observatorio")
     async def crear_observatorio(
         observatory_title: str,
@@ -148,6 +147,7 @@ def register(mcp: FastMCP):
             }, ensure_ascii=False, indent=2)
 
 
+    # Herramienta para crear catálogos en formato de lista plana
     @mcp.tool(name="crear_catalogos")
     async def crear_catalogos(
         observatory_id: str,
@@ -157,7 +157,7 @@ def register(mcp: FastMCP):
         csv_filename: Optional[str] = None,
         csv_content: Optional[str] = None,
     ) -> str:
-        """Genera y vincula los catálogos en bulk a un observatorio existente."""
+        """Genera y vincula los catálogos en formato de lista plana requerido por JUB v2."""
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -194,25 +194,22 @@ def register(mcp: FastMCP):
         if f_csv:
             f_csv.close()
 
-        catalogs_payload = {
-            "level": 0,
-            "catalogs": [
-                {
-                    "name": f"Spatial - {observatory_title}",
-                    "value": "SPATIAL",
-                    "catalog_type": "spatial",
-                    "description": "Catálogo Geográfico",
-                    "items": spatial_items or [{"name": country, "value": country, "code": 1, "value_type": "string", "aliases": [], "children": []}],
-                },
-                {
-                    "name": f"Temporal - {observatory_title}",
-                    "value": "TEMPORAL",
-                    "catalog_type": "temporal",
-                    "description": "Catálogo Temporal",
-                    "items": temporal_items or [{"name": edition, "value": f"Y{edition}", "code": 1, "value_type": "datetime", "temporal_value": f"{edition}-01-01T00:00:00Z", "aliases": [], "children": []}],
-                },
-            ],
-        }
+        catalogs_payload = [
+            {
+                "name": f"Spatial - {observatory_title}",
+                "value": "SPATIAL",
+                "catalog_type": "SPATIAL",
+                "description": "Catálogo Geográfico",
+                "items": spatial_items or [{"name": country, "value": country, "code": 1, "value_type": "string", "aliases": [], "children": []}],
+            },
+            {
+                "name": f"Temporal - {observatory_title}",
+                "value": "TEMPORAL",
+                "catalog_type": "TEMPORAL",
+                "description": "Catálogo Temporal",
+                "items": temporal_items or [{"name": edition, "value": f"Y{edition}", "code": 1, "value_type": "datetime", "temporal_value": f"{edition}-01-01T00:00:00Z", "aliases": [], "children": []}],
+            },
+        ]
 
         async with httpx.AsyncClient(base_url=JUB_URL, timeout=60.0) as client:
             res = await client.post(f"/api/v2/observatories/{observatory_id}/catalogs/bulk", json=catalogs_payload, headers=headers)
@@ -222,10 +219,11 @@ def register(mcp: FastMCP):
             return json.dumps({
                 "status": "success",
                 "detalles": res.json(),
-                "message": "Catálogos creados y enlazados correctamente."
+                "message": "Catálogos creados y enlazados correctamente en bulk."
             }, ensure_ascii=False, indent=2)
 
 
+    # Herramienta para productos
     @mcp.tool(name="crear_productos")
     async def crear_productos(
         observatory_id: str,
@@ -236,10 +234,10 @@ def register(mcp: FastMCP):
         start_year: str = "2000",
         end_year: str = "2026",
     ) -> str:
-        """Crea productos múltiples por rango de años vinculados a un observatorio."""
+        """Crea productos múltiples vinculados correctamente al observatorio con sus metadatos."""
         desc_final = product_desc_base or product_description_base
         if not desc_final:
-            return json.dumps({"status": "error", "message": "Falta el parámetro 'product_desc_base' o 'product_description_base'."}, ensure_ascii=False)
+            return json.dumps({"status": "error", "message": "Falta la descripción base del producto."}, ensure_ascii=False)
 
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
@@ -277,9 +275,11 @@ def register(mcp: FastMCP):
             return json.dumps({
                 "status": "success",
                 "resultado": res.json(),
-                "message": "Productos múltiples creados y vinculados con éxito."
+                "message": "Productos múltiples creados y vinculados con éxito a la interfaz."
             }, ensure_ascii=False, indent=2)
 
+
+    # Herramienta para crear datasource e ingestar
     @mcp.tool(name="crear_datasource_y_ingestar")
     async def crear_datasource_y_ingestar(
         datasource_name: str,
@@ -342,7 +342,6 @@ def register(mcp: FastMCP):
                             "raw_payload": row,
                         })
 
-            # Ingesta por lotes 
             batch_size = 1000
             total_uploaded = 0
             for i in range(0, len(records_list), batch_size):
@@ -364,8 +363,7 @@ def register(mcp: FastMCP):
             }, ensure_ascii=False, indent=2)
 
 
-    # Herramienta oara indexar completo
-
+    # Pipeline completo
     @mcp.tool(name="pipeline")
     async def pipeline(
         observatory_title: Optional[str] = None,
@@ -434,7 +432,6 @@ def register(mcp: FastMCP):
 
         stem = path_csv.stem.replace("temp_", "")
 
-        # Timeout extendido a 300 segundos para prevenir caídas con CSVs pesados
         async with httpx.AsyncClient(base_url=JUB_URL, timeout=300.0) as client:
             token = await _get_jub_token()
             headers = {"Authorization": f"Bearer {token}"} if token else {}
@@ -523,7 +520,6 @@ def register(mcp: FastMCP):
                 if f_csv:
                     f_csv.close()
 
-            # En lugar de un diccionario con "catalogs": [...], envía la lista directamente:
             catalogs_payload = [
                 {
                     "name": f"Spatial - {observatory_title}",
@@ -562,7 +558,6 @@ def register(mcp: FastMCP):
                 headers=headers,
             )
 
-            
             if cat_res.status_code in (200, 201):
                 catalog_ids = cat_res.json().get("catalog_ids", [])
                 resumen["catalogos"] = f"{len(catalog_ids)} catálogos creados y vinculados"
@@ -576,13 +571,13 @@ def register(mcp: FastMCP):
             except (ValueError, TypeError):
                 return json.dumps({
                     "status": "error",
-                    "message": "Los parámetros start_year y end_year deben ser números válidos enviados como texto (ej. '2020')."
+                    "message": "Los parámetros start_year y end_year deben ser números válidos."
                 }, ensure_ascii=False)
 
             products_list = []
             main_prod = {
                 "name": f"Dataset {product_name_base} {s_year}-{e_year}",
-                "description": f"Dataset completo de {product_desc_base}",
+                "description": f"Dataset completo de {product_description_base}",
                 "catalog_item_ids": []
             }
             if product_id_base:
@@ -592,7 +587,7 @@ def register(mcp: FastMCP):
             for year in range(s_year, e_year + 1):
                 y_prod = {
                     "name": f"{product_name_base} — {year}",
-                    "description": f"{product_desc_base} - Periodo {year}",
+                    "description": f"{product_description_base} - Periodo {year}",
                     "catalog_item_ids": []
                 }
                 if product_id_base:
@@ -687,7 +682,6 @@ def register(mcp: FastMCP):
                             "raw_payload": row,
                         })
 
-            # Subida por bloques de 1,000 registros para evitar errores de memoria o timeouts en archivos pesados
             batch_size = 1000
             total_uploaded = 0
             for i in range(0, len(records_list), batch_size):

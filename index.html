@@ -237,13 +237,13 @@
         <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Crea el Observatorio raíz en JUB:
 
 [Observatorio]
-observatory_title: Emisiones de Benceno
-observatory_description: Registro anual de contaminantes
-institution: SEMARNAT
-edition: '2024'
-country: México
-image_url: https://cdn.pixabay.com/photo/2024/03/13/17/57/artificial-intelligence-8631497_1280.jpg
-user_id: usr_system</pre>
+observatory_title: 
+observatory_description: 
+institution: 
+edition: 
+country: 
+image_url: 
+ </pre>
       </div>
 
       <!-- Tarjeta Guía 4 -->
@@ -271,10 +271,10 @@ edition: '2024'
         <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Registra el DataSource e ingesta los records:
 
 [DataSource]
-datasource_name: Fuente Emisiones Benceno
-datasource_description: Datos crudos desde CSV
-source_id: src_benceno
-observatory_id: obs_tu_id_aqui</pre>
+datasource_name:
+datasource_description: 
+source_id:
+</pre>
       </div>
 
       <!-- Tarjeta Guía 6 -->
@@ -286,12 +286,13 @@ observatory_id: obs_tu_id_aqui</pre>
         <pre class="guide-snippet mono p-2 rounded bg-[color:var(--surface-2)] text-[color:var(--muted)] overflow-x-auto">Crea y enlaza los productos múltiples al observatorio:
 
 [Products]
-observatory_id: obs_tu_id_aqui
-product_name_base: Emisiones de Benceno
-product_desc_base: Dataset anual de benceno
-product_id_base: benceno-retc
-start_year: 2000
-end_year: 2026</pre>
+observatory_id: 
+product_name_base: 
+product_desc_base: 
+product_id_base: 
+start_year:
+end_year:
+</pre>
       </div>
 
       <!-- Tarjeta Guía 7 -->
@@ -448,7 +449,7 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
         </button>
 
         <!-- 3. Botón Separado: Indexar Observatorio -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Crea el Observatorio raíz en JUB:\\n\\n[Observatorio]\\nobservatory_title: \\nobservatory_description: \\ninstitution: SEMARNAT\\nedition: \\'2024\\'\\ncountry: México\\nimage_url: https://cdn.pixabay.com/photo/2024/03/13/17/57/artificial-intelligence-8631497_1280.jpg\\nuser_id: usr_system')">
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Crea el Observatorio raíz en JUB:\\n\\n[Observatorio]\\nobservatory_title: Emisiones de Benceno\\nobservatory_description: Registro de emisiones por municipio.\\ninstitution: SEMARNAT\\nedition: \\'2024\\'\\ncountry: México\\nimage_url: https://cdn.pixabay.com/photo/2024/03/13/17/57/artificial-intelligence-8631497_1280.jpg\\nuser_id: usr_system')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" stroke-width="1.7"/><path stroke-width="1.7" stroke-linecap="round" d="M4.5 12c1.8-4.2 5-6.3 7.5-6.3s5.7 2.1 7.5 6.3c-1.8 4.2-5 6.3-7.5 6.3S6.3 16.2 4.5 12Z"/></svg>
           </span>
@@ -459,18 +460,18 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
         </button>
 
         <!-- 4. Botón Separado: Indexar Catálogos -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra y enlaza los catálogos en bulk al observatorio existente:\\n\\n[Catálogos]\\nobservatory_id: \\nobservatory_title: \\ncountry: México\\nedition: \\'2024\\'\\n')">
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra y enlaza los catálogos en bulk utilizando el observatorio guardado en .state.json:\\n\\n[Catálogos]\\nobservatory_id:\\nobservatory_title:\\ncountry:\\nedition:\\n')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg>
           </span>
           <span>
             <div class="text-sm font-medium mb-1">Indexar Catálogos</div>
-            <div class="text-xs leading-5 text-[color:var(--muted)]">Sube catálogos (Spatial, Temporal, etc.) y los enlaza al Observatorio por niveles STORI.</div>
+            <div class="text-xs leading-5 text-[color:var(--muted)]">Sube catálogos y los enlaza al Observatorio automáticamente.</div>
           </span>
         </button>
 
         <!-- 5. Botón Separado: Indexar DataSource y Records -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra el DataSource e ingesta los records:\\n\\n[DataSource]\\ndatasource_name: \\ndatasource_description: \\nsource_id: src_\\nobservatory_id: \\n')">
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Registra el DataSource e ingesta los records usando la configuración por defecto o el archivo activo:\\n\\n[DataSource]\\ndatasource_name: DataSource Emisiones Benceno\\ndatasource_description: Datos crudos de emisiones anuales\\n')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M20 7 12 3 4 7v10l8 4 8-4V7Z"/><path stroke-width="1.7" stroke-linecap="round" d="M4 7l8 4 8-4M12 11v10"/></svg>
           </span>
@@ -480,8 +481,8 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
           </span>
         </button>
 
-        <!-- 6. Botón Separado: Indexar Products -->
-        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Crea y enlaza los productos múltiples al observatorio:\\n\\n[Products]\\nobservatory_id: \\nproduct_name_base: \\nproduct_desc_base: \\nproduct_id_base: \\nstart_year: \\nend_year: \\n')">
+        <!-- 6. Botón Separado: Indexar Products (Optimizado sin pedir IDs manuales) -->
+        <button class="suggestion text-left p-4 flex items-start gap-3" onclick="usarSugerencia('Crea y enlaza los productos múltiples al observatorio actual leyendo .state.json:\\n\\n[Products]\\nobservatory_id:\\nproduct_name_base:\\nproduct_desc_base:\\nproduct_id_base:\\nstart_year:\\nend_year:\\n')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M7 4.5h7l4 4v11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z"/></svg>
           </span>
@@ -492,7 +493,7 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
         </button>
 
         <!-- 7. Indexar Completo / Integral -->
-        <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Ejecuta el flujo completo e integral en JUB de forma automatizada:\\n\\n[Observatorio]\\nobservatory_title: Emisiones de Benceno RETC México\\nobservatory_description: Registro de emisiones y transferencia de contaminantes por municipio en México.\\ninstitution: SEMARNAT\\nedition: \\'2024\\'\\ncountry: México\\nimage_url: https://cdn.pixabay.com/photo/2024/03/13/17/57/artificial-intelligence-8631497_1280.jpg\\n\\n[DataSource]\\ndatasource_name: DataSource Emisiones Benceno\\ndatasource_description: Datos crudos de emisiones anuales procesados desde CSV.\\nsource_id: src_emisiones_benceno\\n\\n[Producto]\\nproduct_name_base: Emisiones de Benceno\\nproduct_description_base: Dataset de reporte anual de benceno\\nproduct_id_base: benceno-retc\\nstart_year: \\nend_year: \\n')">
+        <button class="suggestion text-left p-4 flex items-start gap-3 col-span-1 md:col-span-2" onclick="usarSugerencia('Ejecuta el flujo completo e integral en JUB de forma automatizada:\\n\\n[Observatorio]\\nobservatory_title: Emisiones de Benceno RETC México\\nobservatory_description: Registro de emisiones y transferencia de contaminantes por municipio en México.\\ninstitution: SEMARNAT\\nedition: \\'2024\\'\\ncountry: México\\nimage_url: https://cdn.pixabay.com/photo/2024/03/13/17/57/artificial-intelligence-8631497_1280.jpg\\n\\n[DataSource]\\ndatasource_name: DataSource Emisiones Benceno\\ndatasource_description: Datos crudos de emisiones anuales procesados desde CSV.\\n\\n[Producto]\\nproduct_name_base: Emisiones de Benceno\\nproduct_description_base: Dataset de reporte anual de benceno\\nproduct_id_base: benceno-retc\\nstart_year: 2000\\nend_year: 2026\\n')">
           <span class="suggestion-icon">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/></svg>
           </span>
@@ -502,8 +503,7 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
           </span>
         </button>
 
-      </div>`;
-      
+      </div>`;  
     /* ---------- Drawer Catálogo / Guía ---------- */
     function toggleCatalogDrawer() {
       const drawer = document.getElementById("catalog-drawer");
