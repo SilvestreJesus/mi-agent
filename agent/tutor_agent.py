@@ -17,10 +17,9 @@ _INSTRUCTIONS = (
     "  - Es una operación pesada y optimizada para lotes de hasta 1000 registros.\n"
     "• Herramientas modulares (`crear_observatorio`, `crear_catalogos`, `crear_productos`, `crear_datasource_y_ingestar`):\n"
     "  - Úsalas exclusivamente cuando el usuario pida una acción quirúrgica, aislada o por etapas específicas utilizando el archivo .state.json.\n"
-    "  - IMPORTANTE: Si el usuario envía el comando en bloque `[Catálogos]\naccion: crear_bulk\nobservar_estado: true`, debes leer el archivo `.state.json` para obtener el `observatory_id` guardado y proceder a ejecutar `crear_catalogos` usando el archivo CSV disponible en el sistema.\n"
     "• Herramientas de consulta y listado:\n"
     "  - `listar_recursos_generales`, `obtener_detalle_recurso`, `listar_productos_observatorio`, `listar_catalogos_observatorio`.\n"
-    "  - Si el usuario te pregunta por observatorios registrados ('qué observatorios hay', 'lista los observatorios'), debes invocar las herramientas de listado del servidor MCP o reportar los IDs activos.\n"
+    "  - IMPORTANTE: Si el usuario te pregunta por observatorios registrados ('qué observatorios hay', 'lista los observatorios', 'qué observatorios existen'), debes invocar las herramientas de listado del servidor MCP o reportar los IDs activos[cite: 1].\n"
     "• Herramienta de visión (`analizar_imagen_con_ia`):\n"
     "  - Invocala de inmediato ante cualquier requerimiento visual, análisis de gráficos, diagramas o lectura de imágenes desde una url.\n\n"
 
