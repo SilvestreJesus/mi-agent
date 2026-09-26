@@ -18,10 +18,7 @@ OLLAMA_URL_INTERNO = os.environ.get("OLLAMA_URL", "http://ollama:11434")
 OLLAMA_VISION_MODEL = os.environ.get("OLLAMA_VISION_MODEL", "llava")
 
 
-def resolve_existing_path(filename: str) -> Optional[Path]:
-    """Busca un archivo de manera estricta. Si no existe, retorna None para evitar tomar archivos al azar."""
-    if not filename:
-        return None
+def resolve_existing_path(filename: str) -> Path:
     candidate = Path(filename)
     if candidate.exists():
         return candidate
@@ -38,7 +35,7 @@ def resolve_existing_path(filename: str) -> Optional[Path]:
         if alt.exists():
             return alt
 
-    return None
+    return candidate
 
 
 async def _get_jub_token() -> Optional[str]:
@@ -150,23 +147,17 @@ def register(mcp: FastMCP):
             }, ensure_ascii=False, indent=2)
 
 
-    # Herramienta para crear catálogos exigiendo CSV explícito
+    # Herramienta para crear catálogos robusta
     @mcp.tool(name="crear_catalogos")
     async def crear_catalogos(
         observatory_id: str,
-        observatory_title: str,
+        observatory_title: Optional[str] = "Observatorio",
         country: str = "México",
         edition: str = "2024",
         csv_filename: Optional[str] = None,
         csv_content: Optional[str] = None,
     ) -> str:
-        """Genera y vincula los catálogos en formato de lista plana requerido por JUB v2. REQUIERE un archivo CSV provisto explícitamente."""
-        if not csv_filename and not csv_content:
-            return json.dumps({
-                "status": "error",
-                "message": "Falta el archivo CSV obligatorio. Por favor, adjunta o proporciona un archivo CSV en esta conversación para poder generar los catálogos."
-            }, ensure_ascii=False)
-
+        """Genera y vincula los catálogos en formato de lista plana requerido por JUB v2."""
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -182,29 +173,24 @@ def register(mcp: FastMCP):
         elif csv_content:
             reader = csv.DictReader(io.StringIO(csv_content))
 
-        if not reader:
-            return json.dumps({
-                "status": "error",
-                "message": f"No se pudo encontrar o leer el archivo CSV proporcionado: '{csv_filename}'."
-            }, ensure_ascii=False)
-
-        for row in reader:
-            muni = row.get("municipio") or row.get("Municipio") or row.get("estado") or "General"
-            s_val = muni.upper().replace(" ", "_")
-            if s_val not in spatial_seen:
-                spatial_seen.add(s_val)
-                spatial_items.append({
-                    "name": muni, "value": s_val, "code": len(spatial_seen),
-                    "value_type": "string", "aliases": [], "children": []
-                })
-            anio = str(row.get("anio") or row.get("año") or edition)
-            t_val = f"Y{anio}"
-            if t_val not in temporal_seen:
-                temporal_seen.add(t_val)
-                temporal_items.append({
-                    "name": anio, "value": t_val, "code": int(anio) if anio.isdigit() else 2024,
-                    "value_type": "datetime", "temporal_value": f"{anio}-01-01T00:00:00Z", "aliases": [], "children": []
-                })
+        if reader:
+            for row in reader:
+                muni = row.get("municipio") or row.get("Municipio") or row.get("estado") or "General"
+                s_val = muni.upper().replace(" ", "_")
+                if s_val not in spatial_seen:
+                    spatial_seen.add(s_val)
+                    spatial_items.append({
+                        "name": muni, "value": s_val, "code": len(spatial_seen),
+                        "value_type": "STRING", "aliases": [], "children": []
+                    })
+                anio = str(row.get("anio") or row.get("año") or edition)
+                t_val = f"Y{anio}"
+                if t_val not in temporal_seen:
+                    temporal_seen.add(t_val)
+                    temporal_items.append({
+                        "name": anio, "value": t_val, "code": int(anio) if anio.isdigit() else 2024,
+                        "value_type": "STRING", "temporal_value": f"{anio}-01-01T00:00:00Z", "aliases": [], "children": []
+                    })
         if f_csv:
             f_csv.close()
 
@@ -214,14 +200,14 @@ def register(mcp: FastMCP):
                 "value": "SPATIAL",
                 "catalog_type": "SPATIAL",
                 "description": "Catálogo Geográfico",
-                "items": spatial_items or [{"name": country, "value": country, "code": 1, "value_type": "string", "aliases": [], "children": []}],
+                "items": spatial_items or [{"name": country, "value": country, "code": 1, "value_type": "STRING", "aliases": [], "children": []}],
             },
             {
                 "name": f"Temporal - {observatory_title}",
                 "value": "TEMPORAL",
                 "catalog_type": "TEMPORAL",
                 "description": "Catálogo Temporal",
-                "items": temporal_items or [{"name": edition, "value": f"Y{edition}", "code": 1, "value_type": "datetime", "temporal_value": f"{edition}-01-01T00:00:00Z", "aliases": [], "children": []}],
+                "items": temporal_items or [{"name": edition, "value": f"Y{edition}", "code": 1, "value_type": "STRING", "temporal_value": f"{edition}-01-01T00:00:00Z", "aliases": [], "children": []}],
             },
         ]
 
@@ -233,11 +219,11 @@ def register(mcp: FastMCP):
             return json.dumps({
                 "status": "success",
                 "detalles": res.json(),
-                "message": "Catálogos creados y enlazados correctamente en bulk a partir del CSV proporcionado."
+                "message": "Catálogos creados y enlazados correctamente en bulk."
             }, ensure_ascii=False, indent=2)
 
 
-    # Herramienta para productos
+    # Herramienta para productos flexible
     @mcp.tool(name="crear_productos")
     async def crear_productos(
         observatory_id: str,
@@ -249,9 +235,7 @@ def register(mcp: FastMCP):
         end_year: str = "2026",
     ) -> str:
         """Crea productos múltiples vinculados correctamente al observatorio con sus metadatos."""
-        desc_final = product_desc_base or product_description_base
-        if not desc_final:
-            return json.dumps({"status": "error", "message": "Falta la descripción base del producto."}, ensure_ascii=False)
+        desc_final = product_desc_base or product_description_base or product_name_base
 
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
@@ -293,7 +277,7 @@ def register(mcp: FastMCP):
             }, ensure_ascii=False, indent=2)
 
 
-    # Herramienta para crear datasource e ingestar exigiendo CSV explícito
+    # Herramienta para crear datasource e ingestar con mapeo multivariable e ID dinámico
     @mcp.tool(name="crear_datasource_y_ingestar")
     async def crear_datasource_y_ingestar(
         datasource_name: str,
@@ -304,29 +288,16 @@ def register(mcp: FastMCP):
         edition: str = "2024",
         country: str = "México",
     ) -> str:
-        """Crea el DataSource e ingesta masiva de registros. EXIGE que se provea un archivo CSV en la llamada."""
-        if not csv_filename and not csv_content:
-            return json.dumps({
-                "status": "error",
-                "message": "Falta el archivo CSV obligatorio para la ingesta. Por favor, adjunta o proporciona un archivo CSV en esta conversación."
-            }, ensure_ascii=False)
-
+        """Crea el DataSource e ingesta masiva de registros a partir de un archivo CSV con lotes."""
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
         SOURCES_DIR.mkdir(parents=True, exist_ok=True)
-        path_csv = resolve_existing_path(csv_filename) if csv_filename else None
-
-        if (not path_csv or not path_csv.exists()) and csv_content and csv_content.strip():
-            path_csv = SOURCES_DIR / (csv_filename or "temp_datos.csv")
+        path_csv = resolve_existing_path(csv_filename) if csv_filename else SOURCES_DIR / "datos.csv"
+        
+        if not path_csv.exists() and csv_content and csv_content.strip():
             with open(path_csv, "w", encoding="utf-8") as f:
                 f.write(csv_content)
-
-        if not path_csv or not path_csv.exists():
-            return json.dumps({
-                "status": "error",
-                "message": f"No se encontró el archivo CSV especificado: '{csv_filename}'. Debe ser proporcionado por el usuario en la sesión."
-            }, ensure_ascii=False)
 
         stem = path_csv.stem.replace("temp_", "")
 
@@ -347,26 +318,46 @@ def register(mcp: FastMCP):
             )
 
             records_list = []
-            with open(path_csv, encoding="utf-8") as f:
-                r_csv = csv.DictReader(f)
-                for idx, row in enumerate(r_csv):
-                    val_raw = row.get("valor") or row.get("emisiones") or 0
-                    try:
-                        val_parsed = float(val_raw)
-                    except (ValueError, TypeError):
-                        val_parsed = 0.0
+            if path_csv.exists():
+                with open(path_csv, encoding="utf-8") as f:
+                    r_csv = csv.DictReader(f)
+                    for idx, row in enumerate(r_csv):
+                        # ID de registro basado en la primera palabra del datasource + identificador único del CSV
+                        row_id = row.get("NSEQN") or row.get("id") or row.get("ID") or str(idx + 1)
+                        clean_ds_prefix = datasource_name.lower().split()[0] if datasource_name else "record"
+                        record_id = f"{clean_ds_prefix}-{row_id}"
 
-                    anio_raw = str(row.get("anio") or row.get("año") or edition)
-                    muni_raw = (row.get("municipio") or row.get("Municipio") or country)
+                        muni_raw = row.get("municipio") or row.get("Municipio") or row.get("estado") or country
+                        spatial_id = muni_raw.upper().replace(" ", "_")
 
-                    records_list.append({
-                        "record_id": f"rec_{idx+1}",
-                        "spatial_id": muni_raw.upper().replace(" ", "_"),
-                        "temporal_id": f"{anio_raw}-01-01T00:00:00Z",
-                        "interest_ids": [],
-                        "numerical_interest_ids": {"VALOR": val_parsed},
-                        "raw_payload": row,
-                    })
+                        anio_raw = str(row.get("anio") or row.get("año") or row.get("YFD") or edition)
+                        temporal_id = f"{anio_raw}-01-01T00:00:00Z" if len(anio_raw) == 4 else "2024-01-01T00:00:00Z"
+
+                        # Mapeo multivariable automático para la sección numérica
+                        numerical_interests = {}
+                        interest_ids = []
+
+                        for key, val in row.items():
+                            if key.lower() in ["nseqn", "id", "municipio", "estado", "anio", "año"]:
+                                continue
+                            try:
+                                num_val = float(val)
+                                numerical_interests[key.upper()] = num_val
+                            except (ValueError, TypeError):
+                                if val and str(val).strip():
+                                    interest_ids.append(str(val))
+
+                        if not numerical_interests:
+                            numerical_interests = {"VALOR": 0.0}
+
+                        records_list.append({
+                            "record_id": record_id,
+                            "spatial_id": spatial_id,
+                            "temporal_id": temporal_id,
+                            "interest_ids": interest_ids,
+                            "numerical_interest_ids": numerical_interests,
+                            "raw_payload": row,
+                        })
 
             batch_size = 1000
             total_uploaded = 0
@@ -385,11 +376,11 @@ def register(mcp: FastMCP):
                 "status": "success",
                 "source_id": created_source_id,
                 "registros_subidos": total_uploaded,
-                "message": "DataSource creado y registros ingeridos correctamente usando el CSV proporcionado."
+                "message": "DataSource creado y registros ingeridos con éxito mapeando todas las variables numéricas."
             }, ensure_ascii=False, indent=2)
 
 
-    # Pipeline completo exigiendo CSV explícito
+    # Pipeline completo integrando la misma lógica de ingesta avanzada
     @mcp.tool(name="pipeline")
     async def pipeline(
         observatory_title: Optional[str] = None,
@@ -412,14 +403,14 @@ def register(mcp: FastMCP):
         image_url: Optional[str] = None,              
         user_id: str = "usr_system",
     ) -> str:
-        """Herramienta v2 para indexación integral completa. EXIGE un archivo CSV válido provisto por el usuario."""
+        """Herramienta v2 optimizada para indexación integral completa con soporte para archivos CSV pesados."""
         missing_params = []
         if not observatory_title: missing_params.append("observatory_title")
         if not observatory_description: missing_params.append("observatory_description")
         if not institution: missing_params.append("institution")
         if not edition: missing_params.append("edition")
         if not country: missing_params.append("country")
-        if not csv_filename and not csv_content: missing_params.append("csv_filename o csv_content (Obligatorio)")
+        if not csv_filename and not csv_content: missing_params.append("csv_filename o csv_content")
         if not product_name_base: missing_params.append("product_name_base")
         if not product_description_base: missing_params.append("product_description_base")
         if not datasource_name: missing_params.append("datasource_name")
@@ -431,7 +422,7 @@ def register(mcp: FastMCP):
             return json.dumps(
                 {
                     "status": "missing_parameters",
-                    "message": "Faltan parámetros requeridos (asegúrate de incluir el archivo CSV en la petición).",
+                    "message": "Faltan parámetros requeridos para indexar en JUB.",
                     "missing_parameters": missing_params,
                 },
                 ensure_ascii=False,
@@ -446,18 +437,15 @@ def register(mcp: FastMCP):
         IMAGES_DIR.mkdir(parents=True, exist_ok=True)
         DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-        path_csv = resolve_existing_path(csv_filename) if csv_filename else None
-        if (not path_csv or not path_csv.exists()) and csv_content and csv_content.strip():
-            path_csv = SOURCES_DIR / (csv_filename or "datos.csv")
+        path_csv = (
+            resolve_existing_path(csv_filename)
+            if csv_filename
+            else SOURCES_DIR / "datos.csv"
+        )
+        if not path_csv.exists() and csv_content and csv_content.strip():
             with open(path_csv, "w", encoding="utf-8") as f:
                 f.write(csv_content)
             steps_log.append(f"CSV de origen guardado en: '{path_csv}'.")
-
-        if not path_csv or not path_csv.exists():
-            return json.dumps({
-                "status": "error",
-                "message": f"El archivo CSV '{csv_filename}' no existe o no fue proporcionado en la sesión actual."
-            }, ensure_ascii=False)
 
         stem = path_csv.stem.replace("temp_", "")
 
@@ -476,6 +464,7 @@ def register(mcp: FastMCP):
                     "institution": institution,
                 },
             }
+            
             if image_url:
                 setup_payload["image_url"] = image_url
 
@@ -500,14 +489,21 @@ def register(mcp: FastMCP):
             task_id = obs_data.get("task_id")
             resumen["observatorio"] = f"Creado (ID: {observatory_id})"
 
-            steps_log.append("[2/6] Creando Catálogos a partir del CSV...")
+            steps_log.append("[2/6] Creando Catálogos...")
             spatial_items = []
             temporal_items = []
             spatial_seen = set()
             temporal_seen = set()
 
-            with open(path_csv, encoding="utf-8") as f_csv:
+            reader = None
+            f_csv = None
+            if path_csv.exists():
+                f_csv = open(path_csv, encoding="utf-8")
                 reader = csv.DictReader(f_csv)
+            elif csv_content:
+                reader = csv.DictReader(io.StringIO(csv_content))
+
+            if reader:
                 for row in reader:
                     muni = row.get("municipio") or row.get("Municipio") or row.get("estado") or "General"
                     s_val = muni.upper().replace(" ", "_")
@@ -517,7 +513,7 @@ def register(mcp: FastMCP):
                             "name": muni,
                             "value": s_val,
                             "code": len(spatial_seen),
-                            "value_type": "string",
+                            "value_type": "STRING",
                             "aliases": [],
                             "children": [],
                         })
@@ -530,11 +526,14 @@ def register(mcp: FastMCP):
                             "name": anio,
                             "value": t_val,
                             "code": int(anio) if anio.isdigit() else 2024,
-                            "value_type": "datetime",
+                            "value_type": "STRING",
                             "temporal_value": f"{anio}-01-01T00:00:00Z",
                             "aliases": [],
                             "children": [],
                         })
+
+                if f_csv:
+                    f_csv.close()
 
             catalogs_payload = [
                 {
@@ -542,14 +541,18 @@ def register(mcp: FastMCP):
                     "value": "SPATIAL",
                     "catalog_type": "SPATIAL",
                     "description": "Catálogo Geográfico",
-                    "items": spatial_items,
+                    "items": spatial_items if spatial_items else [{
+                        "name": country, "value": country, "code": 1, "value_type": "STRING", "aliases": [], "children": []
+                    }],
                 },
                 {
                     "name": f"Temporal - {observatory_title}",
                     "value": "TEMPORAL",
                     "catalog_type": "TEMPORAL",
                     "description": "Catálogo Temporal",
-                    "items": temporal_items,
+                    "items": temporal_items if temporal_items else [{
+                        "name": edition, "value": f"Y{edition}", "code": 1, "value_type": "STRING", "temporal_value": f"{edition}-01-01T00:00:00Z", "aliases": [], "children": []
+                    }],
                 }
             ]
 
@@ -600,7 +603,7 @@ def register(mcp: FastMCP):
             else:
                 warnings.append(f"Error al registrar productos: {prod_res.text[:150]}")
 
-            steps_log.append("[4/6] Subiendo archivo o recurso al producto...")
+            steps_log.append("[4/6] Subiendo imagen o recurso al producto...")
             if created_products and (product_file_filename or product_file_content):
                 target_product_id = created_products[0].get("product_id") or created_products[0].get("id")
                 file_bytes = product_file_content.encode('utf-8') if product_file_content else None
@@ -608,7 +611,7 @@ def register(mcp: FastMCP):
 
                 if not file_bytes and product_file_filename:
                     res_path = resolve_existing_path(product_file_filename)
-                    if res_path and res_path.exists():
+                    if res_path.exists():
                         with open(res_path, "rb") as f_bin:
                             file_bytes = f_bin.read()
                         file_name = res_path.name
@@ -624,7 +627,7 @@ def register(mcp: FastMCP):
                     )
                     resumen["archivos_recursos"] = f"Archivo '{file_name}' subido exitosamente"
 
-            steps_log.append("[5/6] Creando DataSource y registrando datos del CSV...")
+            steps_log.append("[5/6] Creando DataSource y registrando datos por lotes...")
             ds_payload = {
                 "name": datasource_name,
                 "description": datasource_description,
@@ -642,26 +645,44 @@ def register(mcp: FastMCP):
             resumen["datasource"] = f"ID: {created_source_id}"
 
             records_list = []
-            with open(path_csv, encoding="utf-8") as f:
-                r_csv = csv.DictReader(f)
-                for idx, row in enumerate(r_csv):
-                    val_raw = row.get("valor") or row.get("emisiones") or 0
-                    try:
-                        val_parsed = float(val_raw)
-                    except (ValueError, TypeError):
-                        val_parsed = 0.0
+            if path_csv.exists():
+                with open(path_csv, encoding="utf-8") as f:
+                    r_csv = csv.DictReader(f)
+                    for idx, row in enumerate(r_csv):
+                        row_id = row.get("NSEQN") or row.get("id") or row.get("ID") or str(idx + 1)
+                        clean_ds_prefix = datasource_name.lower().split()[0] if datasource_name else "record"
+                        record_id = f"{clean_ds_prefix}-{row_id}"
 
-                    anio_raw = str(row.get("anio") or row.get("año") or edition)
-                    muni_raw = (row.get("municipio") or row.get("Municipio") or country)
+                        muni_raw = row.get("municipio") or row.get("Municipio") or row.get("estado") or country
+                        spatial_id = muni_raw.upper().replace(" ", "_")
 
-                    records_list.append({
-                        "record_id": f"rec_{idx+1}",
-                        "spatial_id": muni_raw.upper().replace(" ", "_"),
-                        "temporal_id": f"{anio_raw}-01-01T00:00:00Z",
-                        "interest_ids": [],
-                        "numerical_interest_ids": {"VALOR": val_parsed},
-                        "raw_payload": row,
-                    })
+                        anio_raw = str(row.get("anio") or row.get("año") or row.get("YFD") or edition)
+                        temporal_id = f"{anio_raw}-01-01T00:00:00Z" if len(anio_raw) == 4 else "2024-01-01T00:00:00Z"
+
+                        numerical_interests = {}
+                        interest_ids = []
+
+                        for key, val in row.items():
+                            if key.lower() in ["nseqn", "id", "municipio", "estado", "anio", "año"]:
+                                continue
+                            try:
+                                num_val = float(val)
+                                numerical_interests[key.upper()] = num_val
+                            except (ValueError, TypeError):
+                                if val and str(val).strip():
+                                    interest_ids.append(str(val))
+
+                        if not numerical_interests:
+                            numerical_interests = {"VALOR": 0.0}
+
+                        records_list.append({
+                            "record_id": record_id,
+                            "spatial_id": spatial_id,
+                            "temporal_id": temporal_id,
+                            "interest_ids": interest_ids,
+                            "numerical_interest_ids": numerical_interests,
+                            "raw_payload": row,
+                        })
 
             batch_size = 1000
             total_uploaded = 0
@@ -678,11 +699,25 @@ def register(mcp: FastMCP):
             resumen["registros"] = f"{total_uploaded} registros subidos en lotes"
 
             steps_log.append("[6/6] Finalizando tarea...")
-            await client.post(
+            complete_res = await client.post(
                 f"/api/v2/tasks/{task_id}/complete",
                 json={"success": True, "message": f"Aprovisionamiento completado para {observatory_title}"},
                 headers=headers,
             )
+
+            if complete_res.status_code == 200:
+                resumen["estado_final"] = "Observatorio Activo y Habilitado"
+            else:
+                warnings.append(f"No se pudo completar la tarea de activación: {complete_res.text[:150]}")
+
+            state = {
+                "observatory_id": observatory_id,
+                "task_id": task_id,
+                "source_id": created_source_id,
+                "csv_filename": str(path_csv),
+            }
+            with open(STATE_FILE, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2, ensure_ascii=False)
 
             return json.dumps(
                 {
@@ -692,7 +727,7 @@ def register(mcp: FastMCP):
                     "steps_completed": steps_log,
                     "resumen": resumen,
                     "advertencias": warnings,
-                    "mensaje": "¡Indexación integral completada correctamente utilizando el archivo CSV proporcionado!",
+                    "mensaje": "¡Indexación integral completada correctamente con lotes optimizados y mapeo numérico avanzado!",
                 },
                 ensure_ascii=False,
                 indent=2,
