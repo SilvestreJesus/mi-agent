@@ -105,7 +105,7 @@ def register(mcp: FastMCP):
             }, ensure_ascii=False)
 
 
-    # Herramienta para crear observatorio
+    # Herramienta para crear observatorio y catálogos base automáticos (visible en interfaz)
     @mcp.tool(name="crear_observatorio")
     async def crear_observatorio(
         observatory_title: str,
@@ -116,7 +116,7 @@ def register(mcp: FastMCP):
         image_url: Optional[str] = None,
         user_id: str = "usr_system",
     ) -> str:
-        """Crea el contenedor raíz (Observatorio) en JUB v2 y completa su tarea para hacerlo visible en la interfaz."""
+        """Crea el contenedor raíz (Observatorio) en JUB v2, genera sus catálogos base y completa su tarea para hacerlo visible en la interfaz."""
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -142,7 +142,26 @@ def register(mcp: FastMCP):
             observatory_id = data.get("observatory_id")
             task_id = data.get("task_id")
 
-            # COMPLETAR LA TAREA AUTOMÁTICAMENTE PARA QUE APAREZCA EN LA UI
+            # Crear catálogos base oficiales para que la interfaz web no lo oculte
+            catalogs_payload = [
+                {
+                    "name": f"Spatial - {observatory_title}",
+                    "value": "SPATIAL",
+                    "catalog_type": "SPATIAL",
+                    "description": "Catálogo Geográfico Base",
+                    "items": [{"name": country, "value": country.upper(), "code": 1, "value_type": "STRING", "aliases": [], "children": []}],
+                },
+                {
+                    "name": f"Temporal - {observatory_title}",
+                    "value": "TEMPORAL",
+                    "catalog_type": "TEMPORAL",
+                    "description": "Catálogo Temporal Base",
+                    "items": [{"name": edition, "value": f"Y{edition}", "code": 1, "value_type": "STRING", "temporal_value": f"{edition}-01-01T00:00:00Z", "aliases": [], "children": []}],
+                }
+            ]
+            await client.post(f"/api/v2/observatories/{observatory_id}/catalogs/bulk", json=catalogs_payload, headers=headers)
+
+            # COMPLETAR LA TAREA AUTOMÁTICAMENTE PARA QUITAR LA BANDERA is_disabled
             if task_id:
                 await client.post(
                     f"/api/v2/tasks/{task_id}/complete",
@@ -154,7 +173,7 @@ def register(mcp: FastMCP):
                 "status": "success",
                 "observatory_id": observatory_id,
                 "task_id": task_id,
-                "message": "Observatorio creado, habilitado y visible en la interfaz correctamente."
+                "message": "Observatorio creado, catálogos base generados y habilitado visible en la interfaz."
             }, ensure_ascii=False, indent=2)
 
 
@@ -168,7 +187,7 @@ def register(mcp: FastMCP):
         csv_filename: Optional[str] = None,
         csv_content: Optional[str] = None,
     ) -> str:
-        """Genera y vincula los catálogos en formato de lista plana requerido por JUB v2."""
+        """Genera y vincula los catálogos en formato oficial requerido por JUB v2."""
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -211,7 +230,7 @@ def register(mcp: FastMCP):
                 "value": "SPATIAL",
                 "catalog_type": "SPATIAL",
                 "description": "Catálogo Geográfico",
-                "items": spatial_items or [{"name": country, "value": country, "code": 1, "value_type": "STRING", "aliases": [], "children": []}],
+                "items": spatial_items or [{"name": country, "value": country.upper(), "code": 1, "value_type": "STRING", "aliases": [], "children": []}],
             },
             {
                 "name": f"Temporal - {observatory_title}",
@@ -288,7 +307,7 @@ def register(mcp: FastMCP):
             }, ensure_ascii=False, indent=2)
 
 
-    # Herramienta para crear datasource e ingestar con mapeo multivariable e ID dinámico
+    # Herramienta para crear datasource e ingestar con mapeo numérico e ID limpio basado en el nombre
     @mcp.tool(name="crear_datasource_y_ingestar")
     async def crear_datasource_y_ingestar(
         datasource_name: str,
@@ -299,7 +318,7 @@ def register(mcp: FastMCP):
         edition: str = "2024",
         country: str = "México",
     ) -> str:
-        """Crea el DataSource e ingesta masiva de registros a partir de un archivo CSV con lotes."""
+        """Crea el DataSource e ingesta masiva de registros mapeando columnas numéricas con IDs limpios."""
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -333,10 +352,9 @@ def register(mcp: FastMCP):
                 with open(path_csv, encoding="utf-8") as f:
                     r_csv = csv.DictReader(f)
                     for idx, row in enumerate(r_csv):
-                        # ID de registro basado en la primera palabra del datasource + identificador único del CSV
-                        row_id = row.get("NSEQN") or row.get("id") or row.get("ID") or str(idx + 1)
+                        # ID de registro limpio basado en la primera palabra del datasource (ej: joal-1, joal-2)
                         clean_ds_prefix = datasource_name.lower().split()[0] if datasource_name else "record"
-                        record_id = f"{clean_ds_prefix}-{row_id}"
+                        record_id = f"{clean_ds_prefix}-{idx + 1}"
 
                         muni_raw = row.get("municipio") or row.get("Municipio") or row.get("estado") or country
                         spatial_id = muni_raw.upper().replace(" ", "_")
@@ -344,7 +362,7 @@ def register(mcp: FastMCP):
                         anio_raw = str(row.get("anio") or row.get("año") or row.get("YFD") or edition)
                         temporal_id = f"{anio_raw}-01-01T00:00:00Z" if len(anio_raw) == 4 else "2024-01-01T00:00:00Z"
 
-                        # Mapeo multivariable automático para la sección numérica
+                        # Mapeo multivariable automático para capturar columnas numéricas reales y evitar ceros
                         numerical_interests = {}
                         interest_ids = []
 
@@ -553,7 +571,7 @@ def register(mcp: FastMCP):
                     "catalog_type": "SPATIAL",
                     "description": "Catálogo Geográfico",
                     "items": spatial_items if spatial_items else [{
-                        "name": country, "value": country, "code": 1, "value_type": "STRING", "aliases": [], "children": []
+                        "name": country, "value": country.upper(), "code": 1, "value_type": "STRING", "aliases": [], "children": []
                     }],
                 },
                 {
@@ -660,9 +678,8 @@ def register(mcp: FastMCP):
                 with open(path_csv, encoding="utf-8") as f:
                     r_csv = csv.DictReader(f)
                     for idx, row in enumerate(r_csv):
-                        row_id = row.get("NSEQN") or row.get("id") or row.get("ID") or str(idx + 1)
                         clean_ds_prefix = datasource_name.lower().split()[0] if datasource_name else "record"
-                        record_id = f"{clean_ds_prefix}-{row_id}"
+                        record_id = f"{clean_ds_prefix}-{idx + 1}"
 
                         muni_raw = row.get("municipio") or row.get("Municipio") or row.get("estado") or country
                         spatial_id = muni_raw.upper().replace(" ", "_")
