@@ -116,7 +116,7 @@ def register(mcp: FastMCP):
         image_url: Optional[str] = None,
         user_id: str = "usr_system",
     ) -> str:
-        """Crea únicamente el contenedor raíz (Observatorio) en JUB v2."""
+        """Crea el contenedor raíz (Observatorio) en JUB v2 y completa su tarea para hacerlo visible en la interfaz."""
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -139,11 +139,22 @@ def register(mcp: FastMCP):
                 return json.dumps({"status": "error", "message": res.text}, ensure_ascii=False)
             
             data = res.json()
+            observatory_id = data.get("observatory_id")
+            task_id = data.get("task_id")
+
+            # COMPLETAR LA TAREA AUTOMÁTICAMENTE PARA QUE APAREZCA EN LA UI
+            if task_id:
+                await client.post(
+                    f"/api/v2/tasks/{task_id}/complete",
+                    json={"success": True, "message": f"Observatorio {observatory_title} habilitado con éxito."},
+                    headers=headers,
+                )
+
             return json.dumps({
                 "status": "success",
-                "observatory_id": data.get("observatory_id"),
-                "task_id": data.get("task_id"),
-                "message": "Observatorio creado exitosamente. Guarda este observatory_id."
+                "observatory_id": observatory_id,
+                "task_id": task_id,
+                "message": "Observatorio creado, habilitado y visible en la interfaz correctamente."
             }, ensure_ascii=False, indent=2)
 
 
