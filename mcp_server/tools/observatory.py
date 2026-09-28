@@ -28,7 +28,7 @@ def resolve_existing_path(filename: str) -> Path:
         return candidate
 
     for folder in [
-        DATA_DIR,  # Priorizamos DATA_DIR porque aquí caen los JSON convertidos
+        DATA_DIR,  
         SOURCES_DIR,
         Path("/app/data"),
         Path("/app/sources"),

@@ -237,7 +237,7 @@ async def chat(
         )
 
     # 2. Interceptar solicitudes para listar observatorios consultando directamente la API de JUB
-    if not file and any(k in msg_lower for k in ["observatorio", "observatorios", "qué observatorios hay", "lista los observatorios", "que observatorios existen"]):
+    if not file and any(k in msg_lower for k in ["qué observatorios hay", "que observatorios hay", "lista los observatorios", "listar observatorios", "qué observatorios existen", "que observatorios existen", "muéstrame los observatorios", "muestrame los observatorios",]):
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
         
