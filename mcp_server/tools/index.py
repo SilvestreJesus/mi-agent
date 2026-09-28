@@ -105,7 +105,7 @@ def register(mcp: FastMCP):
             }, ensure_ascii=False)
 
 
-    # Herramienta para crear observatorio
+    # Herramienta para crear observatorio corregida para mostrarse en la interfaz al instante
     @mcp.tool(name="crear_observatorio")
     async def crear_observatorio(
         observatory_title: str,
@@ -134,6 +134,7 @@ def register(mcp: FastMCP):
             setup_payload["image_url"] = image_url
 
         async with httpx.AsyncClient(base_url=JUB_URL, timeout=60.0) as client:
+            # 1. Crear el observatorio (setup) que lo deja en modo is_disabled: true
             res = await client.post("/api/v2/observatories/setup", json=setup_payload, headers=headers)
             if res.status_code not in (200, 201):
                 return json.dumps({"status": "error", "message": res.text}, ensure_ascii=False)
@@ -142,6 +143,7 @@ def register(mcp: FastMCP):
             observatory_id = data.get("observatory_id")
             task_id = data.get("task_id")
 
+            # 2. Inyectar catálogos base obligatorios (SPATIAL y TEMPORAL) para que la UI lo reconozca válido
             catalogs_payload = [
                 {
                     "name": f"Spatial - {observatory_title}",
@@ -160,18 +162,13 @@ def register(mcp: FastMCP):
             ]
             await client.post(f"/api/v2/observatories/{observatory_id}/catalogs/bulk", json=catalogs_payload, headers=headers)
 
+            # 3. Completar la tarea obligatoriamente para quitar la bandera is_disabled y mostrarlo en la UI
             if task_id:
                 await client.post(
                     f"/api/v2/tasks/{task_id}/complete",
                     json={"success": True, "message": f"Observatorio {observatory_title} habilitado con éxito."},
                     headers=headers,
                 )
-
-            # Guardar en STATE_FILE para persistencia modular
-            state = {"observatory_id": observatory_id, "task_id": task_id}
-            if os.path.exists(os.path.dirname(STATE_FILE) or "."):
-                with open(STATE_FILE, "w", encoding="utf-8") as f:
-                    json.dump(state, f, indent=2, ensure_ascii=False)
 
             return json.dumps({
                 "status": "success",
@@ -181,31 +178,19 @@ def register(mcp: FastMCP):
             }, ensure_ascii=False, indent=2)
 
 
-    # Herramienta para crear catálogos robusta y completamente funcional
+    # Herramienta para crear catálogos robusta
     @mcp.tool(name="crear_catalogos")
     async def crear_catalogos(
-        observatory_id: Optional[str] = None,
+        observatory_id: str,
         observatory_title: Optional[str] = "Observatorio",
         country: str = "México",
         edition: str = "2024",
         csv_filename: Optional[str] = None,
         csv_content: Optional[str] = None,
     ) -> str:
-        """Genera y vincula los catálogos en formato oficial requerido por JUB v2 leyendo datos del CSV o contenido."""
+        """Genera y vincula los catálogos en formato oficial requerido por JUB v2."""
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
-
-        # Si no pasan observatory_id, intenta leerlo del state guardado
-        if not observatory_id and os.path.exists(STATE_FILE):
-            try:
-                with open(STATE_FILE, "r", encoding="utf-8") as f:
-                    st = json.load(f)
-                    observatory_id = st.get("observatory_id")
-            except Exception:
-                pass
-
-        if not observatory_id:
-            return json.dumps({"status": "error", "message": "Se requiere un observatory_id o haber creado un observatorio previamente."}, ensure_ascii=False)
 
         path_csv = resolve_existing_path(csv_filename) if csv_filename else None
         spatial_items, temporal_items = [], []
@@ -245,14 +230,14 @@ def register(mcp: FastMCP):
                 "name": f"Spatial - {observatory_title}",
                 "value": "SPATIAL",
                 "catalog_type": "SPATIAL",
-                "description": "Catálogo Geográfico Extraído",
+                "description": "Catálogo Geográfico",
                 "items": spatial_items or [{"name": country, "value": country.upper().replace(" ", "_"), "code": 1, "value_type": "STRING", "aliases": [], "children": []}],
             },
             {
                 "name": f"Temporal - {observatory_title}",
                 "value": "TEMPORAL",
                 "catalog_type": "TEMPORAL",
-                "description": "Catálogo Temporal Extraído",
+                "description": "Catálogo Temporal",
                 "items": temporal_items or [{"name": edition, "value": f"Y{edition}", "code": 1, "value_type": "STRING", "temporal_value": f"{edition}-01-01T00:00:00Z", "aliases": [], "children": []}],
             },
         ]
@@ -269,36 +254,22 @@ def register(mcp: FastMCP):
             }, ensure_ascii=False, indent=2)
 
 
-    # Herramienta para productos flexible con habilitación automática de interfaz
+    # Herramienta para productos flexible
     @mcp.tool(name="crear_productos")
     async def crear_productos(
-        observatory_id: Optional[str] = None,
-        product_name_base: str = "Producto",
+        observatory_id: str,
+        product_name_base: str,
         product_desc_base: Optional[str] = None,
         product_description_base: Optional[str] = None, 
         product_id_base: Optional[str] = None,
         start_year: str = "2000",
         end_year: str = "2026",
-        task_id: Optional[str] = None,
     ) -> str:
-        """Crea productos múltiples vinculados al observatorio y completa la tarea para mostrarlo en la interfaz."""
+        """Crea productos múltiples vinculados correctamente al observatorio con sus metadatos."""
+        desc_final = product_desc_base or product_description_base or product_name_base
+
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
-
-        # Recuperar state si falta ID o task
-        if (not observatory_id or not task_id) and os.path.exists(STATE_FILE):
-            try:
-                with open(STATE_FILE, "r", encoding="utf-8") as f:
-                    st = json.load(f)
-                    observatory_id = observatory_id or st.get("observatory_id")
-                    task_id = task_id or st.get("task_id")
-            except Exception:
-                pass
-
-        if not observatory_id:
-            return json.dumps({"status": "error", "message": "Falta observatory_id para asociar los productos."}, ensure_ascii=False)
-
-        desc_final = product_desc_base or product_description_base or product_name_base
 
         try:
             s_year, e_year = int(start_year), int(end_year)
@@ -330,18 +301,10 @@ def register(mcp: FastMCP):
             if res.status_code not in (200, 201):
                 return json.dumps({"status": "error", "message": res.text}, ensure_ascii=False)
 
-            # Completar la task automáticamente al crear productos para reflejarlo en la UI
-            if task_id:
-                await client.post(
-                    f"/api/v2/tasks/{task_id}/complete",
-                    json={"success": True, "message": "Productos creados y observatorio habilitado en UI."},
-                    headers=headers,
-                )
-
             return json.dumps({
                 "status": "success",
                 "resultado": res.json(),
-                "message": "Productos múltiples creados, vinculados con éxito y observatorio habilitado en la interfaz."
+                "message": "Productos múltiples creados y vinculados con éxito a la interfaz."
             }, ensure_ascii=False, indent=2)
 
 
@@ -465,7 +428,7 @@ def register(mcp: FastMCP):
         datasource_name: Optional[str] = None,
         datasource_description: Optional[str] = None,
         source_id: Optional[str] = None,            
-        image_url: Optional[str] = None,                
+        image_url: Optional[str] = None,              
         user_id: str = "usr_system",
     ) -> str:
         """Herramienta v2 optimizada para indexación integral completa con soporte para archivos CSV pesados."""
