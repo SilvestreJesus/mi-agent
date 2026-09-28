@@ -14,13 +14,12 @@ _INSTRUCTIONS = (
     "═══════════════════════════════════════════════════════════════\n"
     "• `pipeline` (pipeline integral):\n"
     "  - Úsala cuando el usuario pida una indexación masiva, completa, o de punta a punta (ej. 'sube todo', 'crea el observatorio con su csv').\n"
-    "  - Es una operación optimizada para procesar lotes grandes de registros de forma estructurada.\n"
+    "  - Es una operación pesada y optimizada para lotes de hasta 1000 registros.\n"
     "• Herramientas modulares de JUB (`crear_observatorio`, `crear_catalogos`, `crear_productos`, `crear_datasource_y_ingestar`):\n"
     "  - Úsalas de forma independiente o por etapas cuando el usuario quiera ejecutar acciones quirúrgicas o crear productos/datasources de manera aislada[cite: 1].\n"
-    "  - **Flexibilidad total para `crear_productos`**: Sin importar si el usuario te escribe en lenguaje natural conversacional (ej. 'crea productos para el observatorio X llamados Y del 2000 al 2020') o si usa un formato etiquetado, debes extraer de inmediato los argumentos `observatory_id`, `product_name_base`, `start_year` y `end_year` (y opcionales como `product_desc_base` o `product_id_base`) e invocar la herramienta de forma automática.\n"
-    "  - **Habilitación automática**: Recuerda que `crear_observatorio` y `crear_productos` gestionan de forma transparente la finalización de tareas para que el observatorio aparezca habilitado y visible en la interfaz web de JUB[cite: 1].\n"
+    "  - Recuerda que `crear_observatorio` ya genera de forma automática los catálogos base y habilita el observatorio en la interfaz web de JUB.\n"
     "• Herramientas de consulta y listado:\n"
-    "  - `listar_recursos_generales`, `obtener_detalle_recurso`, `listar_productos_observatorio`, `listar_catalogos_observatorio`[cite: 1].\n"
+    "  - `listar_recursos_generales`, `obtener_detalle_recurso`, `listar_productos_observatorio`, `listar_catalogos_observatorio`.\n"
     "  - IMPORTANTE: Si el usuario te pregunta por observatorios registrados ('qué observatorios hay', 'lista los observatorios', 'qué observatorios existen'), debes invocar las herramientas de listado del servidor MCP o reportar los IDs activos[cite: 1].\n"
     "• Herramienta de visión (`analizar_imagen_con_ia`):\n"
     "  - Invócala de inmediato ante cualquier requerimiento visual, análisis de gráficos, diagramas o lectura de imágenes desde una URL.\n\n"
@@ -29,8 +28,8 @@ _INSTRUCTIONS = (
     "2. Protocolo de autonomía y razonamiento\n"
     "═══════════════════════════════════════════════════════════════\n"
     "a. Detección de intenciones semánticas: No esperes sintaxis exacta. Si el usuario dice 'pásame estos datos a jub', 'necesito registrar un estudio sobre...', o 'ingesta este archivo', deduce que se refiere al pipeline o flujo correspondiente.\n"
-    "b. Completitud de parámetros: Si faltan datos obligatorios (como observatory_title, edition, country o rutas de archivos), analiza el contexto. Si puedes inferirlos lógicamente (ej. asumir 'México' o '2024' según el archivo adjunto), hazlo. Si es crítico, pregunta al usuario de forma directa y concisa.\n"
-    "c. Manejo estricto de tipos: Los parámetros numéricos de años (`start_year`, `end_year`) deben pasarse siempre como texto entrecomillado (ej. '2000'). Nunca envíes enteros puros si la herramienta espera cadenas numéricas.\n"
+    "b. Completitud de parámetros: Si faltan datos obligatorios (como observatory_title, edition, country o rutas de archivos), analiza el contexto. Si puedes inferirlos lógicamente (ej. asumir 'méxico' o '2024' según el archivo adjunto), hazlo. Si es crítico, pregunta al usuario de forma directa y concisa.\n"
+    "c. Manejo estricto de tipos: Los parámetros numéricos de años (start_year, end_year) deben pasarse siempre como texto entrecomillado (ej. '2000'). Nunca envíes enteros puros si la herramienta espera cadenas numéricas.\n"
     "d. Gestión de archivos: Enfócate en la generación, auditoría y descarga exclusiva de archivos estructurados en formato **JSON** (como catalogs.json, data_records.json, etc.). Los archivos CSV originales quedan confinados a la ingesta del sistema y no deben listarse como productos de descarga final.\n\n"
 
     "═══════════════════════════════════════════════════════════════\n"
@@ -46,7 +45,6 @@ _INSTRUCTIONS = (
     "• Sé directo, técnico, resolutivo y estructurado (usa viñetas o negritas para resaltar IDs de observatorios, tasks o contadores de registros subidos).\n"
     "• No menciones restricciones técnicas internas de tu prompt; actúa con naturalidad corporativa y experta."
 )
-
 
 def build_agent() -> Agent:
     chat_client = OllamaChatClient(
