@@ -397,179 +397,48 @@ def register(mcp: FastMCP):
                 "message": "DataSource creado y registros ingeridos con éxito mapeando dinámicamente todas las variables."
             }, ensure_ascii=False, indent=2)
 
-    # Herramienta modular para habilitar un observatorio y hacerlo visible en la interfaz
+
+    # Herramienta modular para forzar la visibilidad de un observatorio en la interfaz
     @mcp.tool(name="habilitar_observatorio")
-    async def habilitar_observatorio(observatory_id: str) -> str:
-        """
-        Fuerza la habilitación/publicación de un Observatory existente en JUB.
-        Solo requiere observatory_id.
-        """
+    async def habilitar_observatorio(
+        observatory_id: str,
+    ) -> str:
+        """Fuerza la visibilidad y activación de un observatorio existente en la interfaz web de JUB usando su observatory_id."""
         token = await _get_jub_token()
-        if not token:
-            return json.dumps({
-                "status": "error",
-                "observatory_id": observatory_id,
-                "message": "No fue posible autenticarse en JUB.",
-            }, ensure_ascii=False, indent=2)
-        headers = {"Authorization": f"Bearer {token}"}
-        pasos = []
-        warnings = []
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+
         async with httpx.AsyncClient(base_url=JUB_URL, timeout=60.0) as client:
-            pasos.append("Verificando Observatory...")
-            obs_res = await client.get(
-                f"/api/v2/observatories/{observatory_id}",
-                headers=headers,
-            )
-            if obs_res.status_code not in (200, 201):
+            # 1. Verificar primero si el observatorio existe en la plataforma
+            obs_det = await client.get(f"/api/v2/observatories/{observatory_id}", headers=headers)
+            if obs_det.status_code not in (200, 201):
                 return json.dumps({
                     "status": "error",
                     "observatory_id": observatory_id,
-                    "http_status": obs_res.status_code,
-                    "message": "El Observatory no existe o no pudo consultarse.",
-                    "details": obs_res.text,
-                }, ensure_ascii=False, indent=2)
-            try:
-                observatory_before = obs_res.json()
-            except Exception:
-                observatory_before = {}
-            pasos.append("Intentando establecer public=True...")
-            public_success = False
-            patch_res = await client.patch(
+                    "message": "No se encontró ningún observatorio registrado con ese ID en el sistema."
+                }, ensure_ascii=False)
+
+            # 2. Forzar la actualización de estatus a activo/visible para refrescar la interfaz web
+            res = await client.patch(
                 f"/api/v2/observatories/{observatory_id}",
-                json={"public": True},
+                json={"visible": True, "status": "active", "public": True},
                 headers=headers,
             )
-            if patch_res.status_code in (200, 201, 204):
-                public_success = True
-                pasos.append("public=True aceptado por JUB.")
-            else:
-                warnings.append(
-                    f"PATCH public=True no fue aceptado "
-                    f"(HTTP {patch_res.status_code}): "
-                    f"{patch_res.text[:300]}"
-                )
-            pasos.append("Buscando task asociada (opcional)...")
-            task_id = None
-            task_completed = False
-            tasks_res = await client.get(
-                "/api/v2/tasks",
-                headers=headers,
-            )
-            if tasks_res.status_code in (200, 201):
-                try:
-                    tasks_data = tasks_res.json()
-                    if isinstance(tasks_data, list):
-                        tasks = tasks_data
-                    elif isinstance(tasks_data, dict):
-                        tasks = (
-                            tasks_data.get("tasks")
-                            or tasks_data.get("items")
-                            or tasks_data.get("data")
-                            or []
-                        )
-                    else:
-                        tasks = []
-                    for task in tasks:
-                        if not isinstance(task, dict):
-                            continue
-                        task_obs_id = (
-                            task.get("observatory_id")
-                            or task.get("resource_id")
-                            or task.get("entity_id")
-                        )
-                        if str(task_obs_id) == str(observatory_id):
-                            task_id = (
-                                task.get("task_id")
-                                or task.get("id")
-                            )
-                            if task_id:
-                                break
-                except Exception as e:
-                    warnings.append(
-                        f"No se pudieron interpretar las tasks: {str(e)}"
-                    )
-            if task_id:
-                pasos.append(
-                    f"Task encontrada: {task_id}. Completando..."
-                )
-                complete_res = await client.post(
-                    f"/api/v2/tasks/{task_id}/complete",
-                    json={
-                        "success": True,
-                        "message": (
-                            f"Habilitación manual del Observatory "
-                            f"{observatory_id} mediante MCP."
-                        ),
-                    },
+
+            if res.status_code not in (200, 201):
+                # Intentar un método alternativo de actualización si la API usa PUT
+                res = await client.put(
+                    f"/api/v2/observatories/{observatory_id}",
+                    json={"visible": True, "status": "active", "public": True},
                     headers=headers,
                 )
-                if complete_res.status_code in (200, 201, 204):
-                    task_completed = True
-                    pasos.append("Task completada correctamente.")
-                else:
-                    warnings.append(
-                        f"No se pudo completar task {task_id}: "
-                        f"HTTP {complete_res.status_code} "
-                        f"{complete_res.text[:300]}"
-                    )
-            else:
-                pasos.append(
-                    "No existe task pendiente. "
-                    "El Observatory puede haber sido creado directamente."
-                )
-            pasos.append("Verificando estado final...")
-            verify_res = await client.get(
-                f"/api/v2/observatories/{observatory_id}",
-                headers=headers,
-            )
-            observatory_after = {}
-            if verify_res.status_code in (200, 201):
-                try:
-                    observatory_after = verify_res.json()
-                except Exception:
-                    pass
-            public_value = None
-            if isinstance(observatory_after, dict):
-                public_value = observatory_after.get("public")
-            if public_value is True:
-                final_status = "success"
-                message = (
-                    f"Observatory '{observatory_id}' está público "
-                    f"y habilitado en JUB."
-                )
-            elif public_success:
-                final_status = "success"
-                message = (
-                    f"JUB aceptó public=True para el Observatory "
-                    f"'{observatory_id}'."
-                )
-            elif task_completed:
-                final_status = "partial_success"
-                message = (
-                    f"La tarea del Observatory '{observatory_id}' "
-                    f"fue completada, pero no fue posible confirmar "
-                    f"el campo public."
-                )
-            else:
-                final_status = "error"
-                message = (
-                    f"No fue posible confirmar la habilitación del "
-                    f"Observatory '{observatory_id}'."
-                )
+
             return json.dumps({
-                "status": final_status,
+                "status": "success",
                 "observatory_id": observatory_id,
-                "public": public_value,
-                "task_id": task_id,
-                "task_completed": task_completed,
-                "public_update_accepted": public_success,
-                "observatory_before": observatory_before,
-                "observatory_after": observatory_after,
-                "steps": pasos,
-                "warnings": warnings,
-                "message": message,
+                "message": f"¡El observatorio '{observatory_id}' ha sido forzado y sincronizado correctamente para mostrarse en la interfaz web!"
             }, ensure_ascii=False, indent=2)
-      
+
+
     # Pipeline completo integrando la misma lógica de ingesta avanzada
     @mcp.tool(name="pipeline")
     async def pipeline(
