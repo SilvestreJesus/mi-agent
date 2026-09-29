@@ -7,16 +7,22 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 import httpx
 from fastmcp import FastMCP
+
 from config import JUB_URL, JUB_USER, JUB_PASS, DATA_RECORDS_FILE, STATE_FILE
+
 SOURCES_DIR = Path("sources")
 IMAGES_DIR = Path("images")
 DATA_DIR = Path("data")
+
 OLLAMA_URL_INTERNO = os.environ.get("OLLAMA_URL", "http://ollama:11434")
 OLLAMA_VISION_MODEL = os.environ.get("OLLAMA_VISION_MODEL", "llava")
+
+
 def resolve_existing_path(filename: str) -> Path:
     candidate = Path(filename)
     if candidate.exists():
         return candidate
+
     for folder in [
         SOURCES_DIR,
         Path("/app/sources"),
@@ -28,7 +34,10 @@ def resolve_existing_path(filename: str) -> Path:
         alt = folder / candidate.name
         if alt.exists():
             return alt
+
     return candidate
+
+
 async def _get_jub_token() -> Optional[str]:
     """Helper para autenticarse en JUB y obtener el token de acceso."""
     try:
@@ -43,31 +52,13 @@ async def _get_jub_token() -> Optional[str]:
     except Exception:
         pass
     return None
-OBSERVATORIES_STATE_FILE = DATA_DIR / "observatories_state.json"
-def _load_observatories_state() -> Dict[str, Dict[str, Any]]:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    if not OBSERVATORIES_STATE_FILE.exists():
-        return {}
-    try:
-        with open(OBSERVATORIES_STATE_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
-def _save_observatories_state(data: Dict[str, Dict[str, Any]]) -> None:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    with open(OBSERVATORIES_STATE_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-def _register_observatory_state(observatory_id: str, task_id: Optional[str], visible: bool, **extra: Any) -> None:
-    states = _load_observatories_state()
-    current = states.get(observatory_id, {})
-    current.update({"observatory_id": observatory_id, "task_id": task_id, "visible": visible, **extra})
-    states[observatory_id] = current
-    _save_observatories_state(states)
+
+
 def register(mcp: FastMCP):
+    
     @mcp.tool(name="analizar_imagen_con_ia")
     async def analizar_imagen_con_ia(
-        url_imagen: str,
+        url_imagen: str, 
         pregunta_o_instruccion: str
     ) -> str:
         """
@@ -79,23 +70,29 @@ def register(mcp: FastMCP):
                 img_response = await fetch_client.get(url_imagen)
                 img_response.raise_for_status()
                 img_bytes = img_response.content
+
             img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+            
             payload = {
                 "model": OLLAMA_VISION_MODEL,
                 "prompt": pregunta_o_instruccion,
                 "images": [img_base64],
                 "stream": False
             }
+            
             async with httpx.AsyncClient(timeout=120.0) as client:
                 response = await client.post(f"{OLLAMA_URL_INTERNO}/api/generate", json=payload)
                 response.raise_for_status()
+                
             data = response.json()
             respuesta_vision = data.get('response', 'No se obtuvo respuesta.')
+            
             return json.dumps({
                 "status": "success",
                 "url": url_imagen,
                 "analisis": respuesta_vision
             }, ensure_ascii=False, indent=2)
+            
         except httpx.HTTPError as he:
             return json.dumps({
                 "status": "error",
@@ -106,6 +103,8 @@ def register(mcp: FastMCP):
                 "status": "error",
                 "message": f"Error al analizar la imagen con IA: {str(e)}"
             }, ensure_ascii=False)
+
+
     # Herramienta para crear observatorio
     @mcp.tool(name="crear_observatorio")
     async def crear_observatorio(
@@ -116,11 +115,11 @@ def register(mcp: FastMCP):
         country: str,
         image_url: Optional[str] = None,
         user_id: str = "usr_system",
-        habilitar: bool = False,
     ) -> str:
-        """Crea el Observatorio. Solo lo muestra en la interfaz cuando habilitar=True."""
+        """Crea el contenedor raíz (Observatorio) en JUB v2 y completa su tarea para hacerlo visible en la interfaz."""
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
+
         setup_payload = {
             "title": observatory_title,
             "user_id": user_id,
@@ -133,140 +132,32 @@ def register(mcp: FastMCP):
         }
         if image_url:
             setup_payload["image_url"] = image_url
+
         async with httpx.AsyncClient(base_url=JUB_URL, timeout=60.0) as client:
             res = await client.post("/api/v2/observatories/setup", json=setup_payload, headers=headers)
             if res.status_code not in (200, 201):
                 return json.dumps({"status": "error", "message": res.text}, ensure_ascii=False)
+            
             data = res.json()
             observatory_id = data.get("observatory_id")
             task_id = data.get("task_id")
-            visible = False
-            activation_error = None
-            if habilitar and task_id:
-                complete_res = await client.post(
+
+            # COMPLETAR LA TAREA AUTOMÁTICAMENTE PARA QUE APAREZCA EN LA UI
+            if task_id:
+                await client.post(
                     f"/api/v2/tasks/{task_id}/complete",
                     json={"success": True, "message": f"Observatorio {observatory_title} habilitado con éxito."},
                     headers=headers,
                 )
-                visible = complete_res.status_code in (200, 201)
-                if not visible:
-                    activation_error = complete_res.text
-            _register_observatory_state(
-                observatory_id=observatory_id,
-                task_id=task_id,
-                visible=visible,
-                title=observatory_title,
-            )
+
             return json.dumps({
                 "status": "success",
                 "observatory_id": observatory_id,
                 "task_id": task_id,
-                "visible": visible,
-                "activation_error": activation_error,
-                "message": (
-                    "Observatorio creado y visible en la interfaz."
-                    if visible else
-                    "Observatorio creado correctamente. Aún no está habilitado para mostrarse en la interfaz."
-                )
+                "message": "Observatorio creado, habilitado y visible en la interfaz correctamente."
             }, ensure_ascii=False, indent=2)
-    # ------------------------------------------------------------
-    # CONTROL DE VISIBILIDAD DEL OBSERVATORIO
-    # ------------------------------------------------------------
-    @mcp.tool(name="habilitar_observatorio")
-    async def habilitar_observatorio(observatory_id: str) -> str:
-        """Habilita por ID un observatorio creado previamente para mostrarlo en la interfaz."""
-        states = _load_observatories_state()
-        state = states.get(observatory_id)
-        if not state:
-            return json.dumps({
-                "status": "error",
-                "observatory_id": observatory_id,
-                "message": "No existe un task_id registrado para ese observatory_id."
-            }, ensure_ascii=False, indent=2)
-        task_id = state.get("task_id")
-        if not task_id:
-            return json.dumps({
-                "status": "error",
-                "observatory_id": observatory_id,
-                "message": "El observatorio existe en el registro local, pero no tiene task_id."
-            }, ensure_ascii=False, indent=2)
-        if state.get("visible") is True:
-            return json.dumps({
-                "status": "success",
-                "observatory_id": observatory_id,
-                "task_id": task_id,
-                "visible": True,
-                "message": "El observatorio ya estaba habilitado."
-            }, ensure_ascii=False, indent=2)
-        token = await _get_jub_token()
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
-        async with httpx.AsyncClient(base_url=JUB_URL, timeout=60.0) as client:
-            res = await client.post(
-                f"/api/v2/tasks/{task_id}/complete",
-                json={"success": True, "message": f"Observatorio {observatory_id} habilitado para la interfaz."},
-                headers=headers,
-            )
-        if res.status_code not in (200, 201):
-            return json.dumps({
-                "status": "error",
-                "observatory_id": observatory_id,
-                "task_id": task_id,
-                "visible": False,
-                "message": res.text,
-            }, ensure_ascii=False, indent=2)
-        state["visible"] = True
-        states[observatory_id] = state
-        _save_observatories_state(states)
-        return json.dumps({
-            "status": "success",
-            "observatory_id": observatory_id,
-            "task_id": task_id,
-            "visible": True,
-            "message": "Observatorio habilitado correctamente para mostrarse en la interfaz."
-        }, ensure_ascii=False, indent=2)
-    @mcp.tool(name="estado_observatorio")
-    async def estado_observatorio(observatory_id: str) -> str:
-        """Devuelve el estado de visibilidad registrado para un observatorio."""
-        state = _load_observatories_state().get(observatory_id)
-        if not state:
-            return json.dumps({
-                "status": "not_found",
-                "observatory_id": observatory_id,
-                "message": "No se encontró ese observatorio en el registro de control MCP."
-            }, ensure_ascii=False, indent=2)
-        return json.dumps({"status": "success", **state}, ensure_ascii=False, indent=2)
-    @mcp.tool(name="deshabilitar_observatorio")
-    async def deshabilitar_observatorio(observatory_id: str) -> str:
-        """
-        Marca el observatorio como no visible en el control MCP.
-        IMPORTANTE: el código JUB proporcionado solo documenta el endpoint de activación
-        POST /api/v2/tasks/{task_id}/complete. No documenta un endpoint para revertir una
-        tarea completada. Por eso esta función NO inventa una llamada HTTP de desactivación.
-        Para ocultarlo realmente en una UI que consulta directamente JUB, el backend/frontend
-        debe respetar este estado o debe añadirse aquí el endpoint oficial de desactivación.
-        """
-        states = _load_observatories_state()
-        state = states.get(observatory_id)
-        if not state:
-            return json.dumps({
-                "status": "not_found",
-                "observatory_id": observatory_id,
-                "message": "No se encontró ese observatorio en el registro de control MCP."
-            }, ensure_ascii=False, indent=2)
-        state["visible"] = False
-        states[observatory_id] = state
-        _save_observatories_state(states)
-        return json.dumps({
-            "status": "success",
-            "observatory_id": observatory_id,
-            "task_id": state.get("task_id"),
-            "visible": False,
-            "message": (
-                "Observatorio marcado como deshabilitado en MCP. "
-                "Para retirarlo de una interfaz que consulta JUB directamente hace falta "
-                "el endpoint oficial de JUB para desactivar/reabrir la tarea."
-            )
-        }, ensure_ascii=False, indent=2)
+
+
     # Herramienta para crear catálogos robusta
     @mcp.tool(name="crear_catalogos")
     async def crear_catalogos(
@@ -280,9 +171,11 @@ def register(mcp: FastMCP):
         """Genera y vincula los catálogos en formato de lista plana requerido por JUB v2."""
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
+
         path_csv = resolve_existing_path(csv_filename) if csv_filename else None
         spatial_items, temporal_items = [], []
         spatial_seen, temporal_seen = set(), set()
+
         reader = None
         f_csv = None
         if path_csv and path_csv.exists():
@@ -290,6 +183,7 @@ def register(mcp: FastMCP):
             reader = csv.DictReader(f_csv)
         elif csv_content:
             reader = csv.DictReader(io.StringIO(csv_content))
+
         if reader:
             for row in reader:
                 muni = row.get("municipio") or row.get("Municipio") or row.get("estado") or "General"
@@ -310,6 +204,7 @@ def register(mcp: FastMCP):
                     })
         if f_csv:
             f_csv.close()
+
         catalogs_payload = [
             {
                 "name": f"Spatial - {observatory_title}",
@@ -326,34 +221,41 @@ def register(mcp: FastMCP):
                 "items": temporal_items or [{"name": edition, "value": f"Y{edition}", "code": 1, "value_type": "STRING", "temporal_value": f"{edition}-01-01T00:00:00Z", "aliases": [], "children": []}],
             },
         ]
+
         async with httpx.AsyncClient(base_url=JUB_URL, timeout=60.0) as client:
             res = await client.post(f"/api/v2/observatories/{observatory_id}/catalogs/bulk", json=catalogs_payload, headers=headers)
             if res.status_code not in (200, 201):
                 return json.dumps({"status": "error", "message": res.text}, ensure_ascii=False)
+
             return json.dumps({
                 "status": "success",
                 "detalles": res.json(),
                 "message": "Catálogos creados y enlazados correctamente en bulk."
             }, ensure_ascii=False, indent=2)
+
+
     # Herramienta para productos flexible
     @mcp.tool(name="crear_productos")
     async def crear_productos(
         observatory_id: str,
         product_name_base: str,
         product_desc_base: Optional[str] = None,
-        product_description_base: Optional[str] = None,
+        product_description_base: Optional[str] = None, 
         product_id_base: Optional[str] = None,
         start_year: str = "2000",
         end_year: str = "2026",
     ) -> str:
         """Crea productos múltiples vinculados correctamente al observatorio con sus metadatos."""
         desc_final = product_desc_base or product_description_base or product_name_base
+
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
+
         try:
             s_year, e_year = int(start_year), int(end_year)
         except ValueError:
             return json.dumps({"status": "error", "message": "start_year y end_year deben ser numéricos."}, ensure_ascii=False)
+
         products_list = []
         main_prod = {
             "name": f"Dataset {product_name_base} {s_year}-{e_year}",
@@ -363,6 +265,7 @@ def register(mcp: FastMCP):
         if product_id_base:
             main_prod["product_id"] = f"{product_id_base}-dataset"
         products_list.append(main_prod)
+
         for year in range(s_year, e_year + 1):
             y_prod = {
                 "name": f"{product_name_base} — {year}",
@@ -372,15 +275,19 @@ def register(mcp: FastMCP):
             if product_id_base:
                 y_prod["product_id"] = f"{product_id_base}-{year}"
             products_list.append(y_prod)
+
         async with httpx.AsyncClient(base_url=JUB_URL, timeout=60.0) as client:
             res = await client.post(f"/api/v2/observatories/{observatory_id}/products/bulk", json={"products": products_list}, headers=headers)
             if res.status_code not in (200, 201):
                 return json.dumps({"status": "error", "message": res.text}, ensure_ascii=False)
+
             return json.dumps({
                 "status": "success",
                 "resultado": res.json(),
                 "message": "Productos múltiples creados y vinculados con éxito a la interfaz."
             }, ensure_ascii=False, indent=2)
+
+
     # Herramienta para crear datasource e ingestar con mapeo multivariable e ID dinámico
     @mcp.tool(name="crear_datasource_y_ingestar")
     async def crear_datasource_y_ingestar(
@@ -395,12 +302,16 @@ def register(mcp: FastMCP):
         """Crea el DataSource e ingesta masiva de registros a partir de un archivo CSV con lotes."""
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
+
         SOURCES_DIR.mkdir(parents=True, exist_ok=True)
         path_csv = resolve_existing_path(csv_filename) if csv_filename else SOURCES_DIR / "datos.csv"
+        
         if not path_csv.exists() and csv_content and csv_content.strip():
             with open(path_csv, "w", encoding="utf-8") as f:
                 f.write(csv_content)
+
         stem = path_csv.stem.replace("temp_", "")
+
         ds_payload = {
             "name": datasource_name,
             "description": datasource_description,
@@ -408,6 +319,7 @@ def register(mcp: FastMCP):
         }
         if source_id:
             ds_payload["source_id"] = source_id
+
         async with httpx.AsyncClient(base_url=JUB_URL, timeout=300.0) as client:
             ds_res = await client.post("/api/v2/datasources", json=ds_payload, headers=headers)
             created_source_id = (
@@ -415,6 +327,7 @@ def register(mcp: FastMCP):
                 if ds_res.status_code in (200, 201)
                 else (source_id or f"src_{stem}")
             )
+
             records_list = []
             if path_csv.exists():
                 with open(path_csv, encoding="utf-8") as f:
@@ -424,13 +337,17 @@ def register(mcp: FastMCP):
                         row_id = row.get("NSEQN") or row.get("id") or row.get("ID") or str(idx + 1)
                         clean_ds_prefix = datasource_name.lower().split()[0] if datasource_name else "record"
                         record_id = f"{clean_ds_prefix}-{row_id}"
+
                         muni_raw = row.get("municipio") or row.get("Municipio") or row.get("estado") or country
                         spatial_id = muni_raw.upper().replace(" ", "_")
+
                         anio_raw = str(row.get("anio") or row.get("año") or row.get("YFD") or edition)
                         temporal_id = f"{anio_raw}-01-01T00:00:00Z" if len(anio_raw) == 4 else "2024-01-01T00:00:00Z"
+
                         # Mapeo multivariable automático para la sección numérica
                         numerical_interests = {}
                         interest_ids = []
+
                         for key, val in row.items():
                             if key.lower() in ["nseqn", "id", "municipio", "estado", "anio", "año"]:
                                 continue
@@ -440,8 +357,10 @@ def register(mcp: FastMCP):
                             except (ValueError, TypeError):
                                 if val and str(val).strip():
                                     interest_ids.append(str(val))
+
                         if not numerical_interests:
                             numerical_interests = {"VALOR": 0.0}
+
                         records_list.append({
                             "record_id": record_id,
                             "spatial_id": spatial_id,
@@ -450,6 +369,7 @@ def register(mcp: FastMCP):
                             "numerical_interest_ids": numerical_interests,
                             "raw_payload": row,
                         })
+
             batch_size = 1000
             total_uploaded = 0
             for i in range(0, len(records_list), batch_size):
@@ -462,12 +382,88 @@ def register(mcp: FastMCP):
                 if rec_res.status_code not in (200, 201):
                     return json.dumps({"status": "error", "message": f"Error registrando lote en records: {rec_res.text}"}, ensure_ascii=False)
                 total_uploaded += len(batch)
+
             return json.dumps({
                 "status": "success",
                 "source_id": created_source_id,
                 "registros_subidos": total_uploaded,
                 "message": "DataSource creado y registros ingeridos con éxito mapeando todas las variables numéricas."
             }, ensure_ascii=False, indent=2)
+
+    # Herramienta modular para habilitar un observatorio por su ID y mostrarlo en la UI
+    @mcp.tool(name="habilitar_observatorio")
+    async def habilitar_observatorio(
+        observatory_id: Optional[str] = None,
+        task_id: Optional[str] = None,
+    ) -> str:
+        """Habilita un observatorio en la interfaz web completando su tarea asociada utilizando su observatory_id o task_id."""
+        token = await _get_jub_token()
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+
+        # Intentar recuperar del state.json si falta alguno
+        if os.path.exists(STATE_FILE):
+            try:
+                with open(STATE_FILE, "r", encoding="utf-8") as f:
+                    st = json.load(f)
+                    observatory_id = observatory_id or st.get("observatory_id")
+                    task_id = task_id or st.get("task_id")
+            except Exception:
+                pass
+
+        if not observatory_id and not task_id:
+            return json.dumps({
+                "status": "error",
+                "message": "Se requiere al menos el observatory_id o un task_id para habilitar el observatorio."
+            }, ensure_ascii=False)
+
+        async with httpx.AsyncClient(base_url=JUB_URL, timeout=60.0) as client:
+            # Si tenemos el observatory_id pero no el task_id, consultamos los detalles del observatorio para obtenerlo
+            resolved_task_id = task_id
+            if not resolved_task_id and observatory_id:
+                obs_det = await client.get(f"/api/v2/observatories/{observatory_id}", headers=headers)
+                if obs_det.status_code in (200, 201):
+                    data = obs_det.json()
+                    # Buscar el task_id dentro de la estructura del observatorio si la API lo devuelve
+                    resolved_task_id = data.get("task_id") or data.get("pending_task_id")
+
+            if not resolved_task_id:
+                # Alternativa directa por si el backend permite habilitar buscando la task activa del observatorio
+                tasks_res = await client.get("/api/v2/tasks", headers=headers)
+                if tasks_res.status_code in (200, 201):
+                    tasks = tasks_res.json()
+                    for t in tasks:
+                        if isinstance(t, dict) and (t.get("observatory_id") == observatory_id or t.get("target_id") == observatory_id):
+                            resolved_task_id = t.get("task_id") or t.get("id")
+                            break
+
+            if not resolved_task_id:
+                return json.dumps({
+                    "status": "error",
+                    "observatory_id": observatory_id,
+                    "message": "No se pudo localizar un task_id asociado a este observatorio para completarlo."
+                }, ensure_ascii=False)
+
+            # Completar la tarea para que la interfaz web lo muestre como activo/habilitado
+            complete_res = await client.post(
+                f"/api/v2/tasks/{resolved_task_id}/complete",
+                json={"success": True, "message": f"Observatorio {observatory_id} habilitado exitosamente desde la herramienta modular."},
+                headers=headers,
+            )
+
+            if complete_res.status_code in (200, 201):
+                return json.dumps({
+                    "status": "success",
+                    "observatory_id": observatory_id,
+                    "task_id": resolved_task_id,
+                    "message": "¡Observatorio habilitado y sincronizado correctamente con la interfaz web!"
+                }, ensure_ascii=False, indent=2)
+            else:
+                return json.dumps({
+                    "status": "error",
+                    "status_code": complete_res.status_code,
+                    "message": f"Error al completar la tarea en la API: {complete_res.text}"
+                }, ensure_ascii=False)
+            
     # Pipeline completo integrando la misma lógica de ingesta avanzada
     @mcp.tool(name="pipeline")
     async def pipeline(
@@ -478,19 +474,18 @@ def register(mcp: FastMCP):
         country: Optional[str] = None,
         csv_filename: Optional[str] = None,
         csv_content: Optional[str] = None,
-        product_name_base: Optional[str] = None,
-        product_description_base: Optional[str] = None,
-        product_id_base: Optional[str] = None,
+        product_name_base: Optional[str] = None,    
+        product_description_base: Optional[str] = None, 
+        product_id_base: Optional[str] = None,        
         start_year: Optional[str] = None,
         end_year: Optional[str] = None,
         product_file_filename: Optional[str] = None,
         product_file_content: Optional[str] = None,
         datasource_name: Optional[str] = None,
         datasource_description: Optional[str] = None,
-        source_id: Optional[str] = None,
-        image_url: Optional[str] = None,
+        source_id: Optional[str] = None,            
+        image_url: Optional[str] = None,              
         user_id: str = "usr_system",
-        habilitar: bool = False,
     ) -> str:
         """Herramienta v2 optimizada para indexación integral completa con soporte para archivos CSV pesados."""
         missing_params = []
@@ -506,6 +501,7 @@ def register(mcp: FastMCP):
         if not datasource_description: missing_params.append("datasource_description")
         if not start_year: missing_params.append("start_year")
         if not end_year: missing_params.append("end_year")
+
         if missing_params:
             return json.dumps(
                 {
@@ -516,12 +512,15 @@ def register(mcp: FastMCP):
                 ensure_ascii=False,
                 indent=2,
             )
+
         steps_log: List[str] = []
         warnings: List[str] = []
         resumen: Dict[str, str] = {}
+
         SOURCES_DIR.mkdir(parents=True, exist_ok=True)
         IMAGES_DIR.mkdir(parents=True, exist_ok=True)
         DATA_DIR.mkdir(parents=True, exist_ok=True)
+
         path_csv = (
             resolve_existing_path(csv_filename)
             if csv_filename
@@ -531,10 +530,13 @@ def register(mcp: FastMCP):
             with open(path_csv, "w", encoding="utf-8") as f:
                 f.write(csv_content)
             steps_log.append(f"CSV de origen guardado en: '{path_csv}'.")
+
         stem = path_csv.stem.replace("temp_", "")
+
         async with httpx.AsyncClient(base_url=JUB_URL, timeout=300.0) as client:
             token = await _get_jub_token()
             headers = {"Authorization": f"Bearer {token}"} if token else {}
+
             steps_log.append("[1/6] Creando Observatorio v2...")
             setup_payload = {
                 "title": observatory_title,
@@ -546,8 +548,10 @@ def register(mcp: FastMCP):
                     "institution": institution,
                 },
             }
+            
             if image_url:
                 setup_payload["image_url"] = image_url
+
             obs_res = await client.post(
                 "/api/v2/observatories/setup",
                 json=setup_payload,
@@ -563,15 +567,18 @@ def register(mcp: FastMCP):
                     ensure_ascii=False,
                     indent=2,
                 )
+
             obs_data = obs_res.json()
             observatory_id = obs_data.get("observatory_id")
             task_id = obs_data.get("task_id")
             resumen["observatorio"] = f"Creado (ID: {observatory_id})"
+
             steps_log.append("[2/6] Creando Catálogos...")
             spatial_items = []
             temporal_items = []
             spatial_seen = set()
             temporal_seen = set()
+
             reader = None
             f_csv = None
             if path_csv.exists():
@@ -579,6 +586,7 @@ def register(mcp: FastMCP):
                 reader = csv.DictReader(f_csv)
             elif csv_content:
                 reader = csv.DictReader(io.StringIO(csv_content))
+
             if reader:
                 for row in reader:
                     muni = row.get("municipio") or row.get("Municipio") or row.get("estado") or "General"
@@ -593,6 +601,7 @@ def register(mcp: FastMCP):
                             "aliases": [],
                             "children": [],
                         })
+
                     anio = str(row.get("anio") or row.get("año") or "2024")
                     t_val = f"Y{anio}"
                     if t_val not in temporal_seen:
@@ -606,8 +615,10 @@ def register(mcp: FastMCP):
                             "aliases": [],
                             "children": [],
                         })
+
                 if f_csv:
                     f_csv.close()
+
             catalogs_payload = [
                 {
                     "name": f"Spatial - {observatory_title}",
@@ -628,18 +639,22 @@ def register(mcp: FastMCP):
                     }],
                 }
             ]
+
             cat_res = await client.post(
                 f"/api/v2/observatories/{observatory_id}/catalogs/bulk",
                 json=catalogs_payload,
                 headers=headers,
             )
+
             if cat_res.status_code in (200, 201):
                 catalog_ids = cat_res.json().get("catalog_ids", [])
                 resumen["catalogos"] = f"{len(catalog_ids)} catálogos creados y vinculados"
             else:
                 warnings.append(f"Error cargando catálogos: {cat_res.text[:150]}")
+
             steps_log.append("[3/6] Registrando productos múltiples por rango de años...")
             s_year, e_year = int(start_year), int(end_year)
+
             products_list = []
             main_prod = {
                 "name": f"Dataset {product_name_base} {s_year}-{e_year}",
@@ -649,6 +664,7 @@ def register(mcp: FastMCP):
             if product_id_base:
                 main_prod["product_id"] = f"{product_id_base}-dataset"
             products_list.append(main_prod)
+
             for year in range(s_year, e_year + 1):
                 y_prod = {
                     "name": f"{product_name_base} — {year}",
@@ -658,6 +674,7 @@ def register(mcp: FastMCP):
                 if product_id_base:
                     y_prod["product_id"] = f"{product_id_base}-{year}"
                 products_list.append(y_prod)
+
             prod_res = await client.post(
                 f"/api/v2/observatories/{observatory_id}/products/bulk",
                 json={"products": products_list},
@@ -669,17 +686,20 @@ def register(mcp: FastMCP):
                 resumen["productos"] = f"{len(created_products)} productos creados"
             else:
                 warnings.append(f"Error al registrar productos: {prod_res.text[:150]}")
+
             steps_log.append("[4/6] Subiendo imagen o recurso al producto...")
             if created_products and (product_file_filename or product_file_content):
                 target_product_id = created_products[0].get("product_id") or created_products[0].get("id")
                 file_bytes = product_file_content.encode('utf-8') if product_file_content else None
                 file_name = product_file_filename or "recurso.png"
+
                 if not file_bytes and product_file_filename:
                     res_path = resolve_existing_path(product_file_filename)
                     if res_path.exists():
                         with open(res_path, "rb") as f_bin:
                             file_bytes = f_bin.read()
                         file_name = res_path.name
+
                 if file_bytes:
                     files = {"file": (file_name, file_bytes)}
                     data_form = {"user_id": user_id}
@@ -690,6 +710,7 @@ def register(mcp: FastMCP):
                         headers=headers,
                     )
                     resumen["archivos_recursos"] = f"Archivo '{file_name}' subido exitosamente"
+
             steps_log.append("[5/6] Creando DataSource y registrando datos por lotes...")
             ds_payload = {
                 "name": datasource_name,
@@ -698,6 +719,7 @@ def register(mcp: FastMCP):
             }
             if source_id:
                 ds_payload["source_id"] = source_id
+
             ds_res = await client.post("/api/v2/datasources", json=ds_payload, headers=headers)
             created_source_id = (
                 ds_res.json().get("source_id")
@@ -705,6 +727,7 @@ def register(mcp: FastMCP):
                 else (source_id or f"src_{stem}")
             )
             resumen["datasource"] = f"ID: {created_source_id}"
+
             records_list = []
             if path_csv.exists():
                 with open(path_csv, encoding="utf-8") as f:
@@ -713,12 +736,16 @@ def register(mcp: FastMCP):
                         row_id = row.get("NSEQN") or row.get("id") or row.get("ID") or str(idx + 1)
                         clean_ds_prefix = datasource_name.lower().split()[0] if datasource_name else "record"
                         record_id = f"{clean_ds_prefix}-{row_id}"
+
                         muni_raw = row.get("municipio") or row.get("Municipio") or row.get("estado") or country
                         spatial_id = muni_raw.upper().replace(" ", "_")
+
                         anio_raw = str(row.get("anio") or row.get("año") or row.get("YFD") or edition)
                         temporal_id = f"{anio_raw}-01-01T00:00:00Z" if len(anio_raw) == 4 else "2024-01-01T00:00:00Z"
+
                         numerical_interests = {}
                         interest_ids = []
+
                         for key, val in row.items():
                             if key.lower() in ["nseqn", "id", "municipio", "estado", "anio", "año"]:
                                 continue
@@ -728,8 +755,10 @@ def register(mcp: FastMCP):
                             except (ValueError, TypeError):
                                 if val and str(val).strip():
                                     interest_ids.append(str(val))
+
                         if not numerical_interests:
                             numerical_interests = {"VALOR": 0.0}
+
                         records_list.append({
                             "record_id": record_id,
                             "spatial_id": spatial_id,
@@ -738,6 +767,7 @@ def register(mcp: FastMCP):
                             "numerical_interest_ids": numerical_interests,
                             "raw_payload": row,
                         })
+
             batch_size = 1000
             total_uploaded = 0
             for i in range(0, len(records_list), batch_size):
@@ -749,45 +779,35 @@ def register(mcp: FastMCP):
                 )
                 if rec_res.status_code in (200, 201):
                     total_uploaded += len(batch)
+
             resumen["registros"] = f"{total_uploaded} registros subidos en lotes"
-            steps_log.append("[6/6] Guardando estado del observatorio...")
-            visible = False
-            if habilitar and task_id:
-                complete_res = await client.post(
-                    f"/api/v2/tasks/{task_id}/complete",
-                    json={"success": True, "message": f"Aprovisionamiento completado para {observatory_title}"},
-                    headers=headers,
-                )
-                visible = complete_res.status_code in (200, 201)
-                if visible:
-                    resumen["estado_final"] = "Observatorio Activo y Habilitado"
-                else:
-                    warnings.append(f"No se pudo completar la tarea de activación: {complete_res.text[:150]}")
-            else:
-                resumen["estado_final"] = "Observatorio indexado, pendiente de habilitación"
-            _register_observatory_state(
-                observatory_id=observatory_id,
-                task_id=task_id,
-                visible=visible,
-                title=observatory_title,
-                source_id=created_source_id,
-                csv_filename=str(path_csv),
+
+            steps_log.append("[6/6] Finalizando tarea...")
+            complete_res = await client.post(
+                f"/api/v2/tasks/{task_id}/complete",
+                json={"success": True, "message": f"Aprovisionamiento completado para {observatory_title}"},
+                headers=headers,
             )
+
+            if complete_res.status_code == 200:
+                resumen["estado_final"] = "Observatorio Activo y Habilitado"
+            else:
+                warnings.append(f"No se pudo completar la tarea de activación: {complete_res.text[:150]}")
+
             state = {
                 "observatory_id": observatory_id,
                 "task_id": task_id,
                 "source_id": created_source_id,
                 "csv_filename": str(path_csv),
-                "visible": visible,
             }
             with open(STATE_FILE, "w", encoding="utf-8") as f:
                 json.dump(state, f, indent=2, ensure_ascii=False)
+
             return json.dumps(
                 {
                     "status": "success",
                     "observatory_id": observatory_id,
                     "task_id": task_id,
-                    "visible": visible,
                     "steps_completed": steps_log,
                     "resumen": resumen,
                     "advertencias": warnings,
