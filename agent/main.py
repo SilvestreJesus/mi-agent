@@ -271,7 +271,68 @@ async def chat(
             downloads=None,
         )
 
-    # 3. Interceptar solicitud de Auditoría mostrando ÚNICAMENTE archivos JSON (ocultando CSVs)
+    # 3. INTERCEPCIÓN DIRECTA: Habilitar observatorio y hacerlo visible en la interfaz web por ID
+    if not file and ("habilita" in msg_lower or "muestra el observatorio" in msg_lower or "hazlo visible" in msg_lower or "en la plataforma" in msg_lower):
+        # Extraer un ID alfanumérico del mensaje (por ejemplo, tokens tipo kEqmXDpVAOO6)
+        words = message.split()
+        target_id = None
+        for i, w in enumerate(words):
+            if w.lower() in ["id:", "id"] and i + 1 < len(words):
+                target_id = words[i + 1].strip(".,")
+                break
+        
+        # Si no se encontró tras la palabra "id", buscar una cadena larga típica de ID (ej. longitud >= 8)
+        if not target_id:
+            for w in words:
+                clean_w = w.strip(".,`'\"")
+                if len(clean_w) >= 8 and any(c.isupper() for c in clean_w) and any(c.islower() for c in clean_w):
+                    target_id = clean_w
+                    break
+
+        # Si aún no hay ID explícito, intentar leerlo del estado o buscar la tarea pendiente más reciente
+        token = await _get_jub_token()
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        
+        resolved_task_id = None
+        async with httpx.AsyncClient(base_url=JUB_URL, timeout=15.0) as client:
+            # Buscar tareas pendientes o activas
+            tasks_res = await client.get("/api/v2/tasks", headers=headers)
+            if tasks_res.status_code in (200, 201):
+                tasks = tasks_res.json()
+                for t in tasks:
+                    if isinstance(t, dict):
+                        o_id = t.get("observatory_id") or t.get("target_id")
+                        if not target_id or o_id == target_id:
+                            resolved_task_id = t.get("task_id") or t.get("id")
+                            if target_id:
+                                break
+
+            # Si se encontró la tarea, completarla para habilitarlo en la interfaz
+            if resolved_task_id:
+                complete_res = await client.post(
+                    f"/api/v2/tasks/{resolved_task_id}/complete",
+                    json={"success": True, "message": "Observatorio habilitado exitosamente desde la interfaz de chat."},
+                    headers=headers,
+                )
+                if complete_res.status_code in (200, 201):
+                    respuesta_texto = f"── Observatorio Habilitado ─────────────────────────────\n\n¡El observatorio (ID: `{target_id or 'activo'}`) ha sido habilitado y sincronizado con éxito! Ya aparece visible y activo en la interfaz web."
+                else:
+                    respuesta_texto = f"Error al intentar completar la tarea de activación en la API: {complete_res.text}"
+            else:
+                respuesta_texto = f"No se encontró ninguna tarea pendiente asociada al observatorio '{target_id or 'general'}' para habilitarlo."
+
+        session_data["messages"].append({"role": "user", "content": message})
+        session_data["messages"].append({"role": "assistant", "content": respuesta_texto})
+        await save_sessions_async()
+
+        return ChatResponse(
+            session_id=session_id,
+            title=session_data["title"],
+            text=respuesta_texto,
+            downloads=None,
+        )
+
+    # 4. Interceptar solicitud de Auditoría mostrando ÚNICAMENTE archivos JSON (ocultando CSVs)
     if not file and any(k in msg_lower for k in ["archivos json", "json generados", "muéstrame los archivos"]):
         json_archivos = []
         try:
@@ -303,7 +364,7 @@ async def chat(
             downloads=downloads if downloads else None,
         )
 
-    # 4. Flujo principal del Agente de Inteligencia Artificial (Ollama + MCP Tools)
+    # 5. Flujo principal del Agente de Inteligencia Artificial (Ollama + MCP Tools)
     if session_id not in active_session_agents:
         agent = build_agent()
         await agent.__aenter__()
