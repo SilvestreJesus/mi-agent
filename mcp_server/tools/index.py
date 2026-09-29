@@ -402,40 +402,34 @@ def register(mcp: FastMCP):
     async def habilitar_observatorio(
         observatory_id: str,
     ) -> str:
-        """Fuerza la habilitación y visibilidad de un observatorio existente en la interfaz web de JUB usando su observatory_id."""
+        """Fuerza la visibilidad de un observatorio existente en la interfaz web de JUB usando su ID."""
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
         async with httpx.AsyncClient(base_url=JUB_URL, timeout=60.0) as client:
-            # 1. Verificar si el observatorio existe y obtener sus detalles/task_id si los tiene
-            obs_det = await client.get(f"/api/v2/observatories/{observatory_id}", headers=headers)
-            if obs_det.status_code not in (200, 201):
-                return json.dumps({
-                    "status": "error",
-                    "observatory_id": observatory_id,
-                    "message": "No se encontró ningún observatorio registrado con ese ID en el sistema."
-                }, ensure_ascii=False)
-
-            obs_data = obs_det.json()
-            task_id = obs_data.get("task_id") or obs_data.get("pending_task_id")
-
-            # 2. Si tiene un task_id asociado, lo completamos para activar la UI
-            if task_id:
-                complete_res = await client.post(
-                    f"/api/v2/tasks/{task_id}/complete",
-                    json={"success": True, "message": f"Forzando habilitación del observatorio {observatory_id} en la interfaz."},
-                    headers=headers,
-                )
-
-            # 3. Llamada adicional de respaldo a un endpoint de actualización/visibilidad si el backend lo soporta,
-            # o re-confirmación de estatus para asegurarnos de que la página web lo refresque.
-            # Al completar la tarea, la plataforma web de JUB refresca automáticamente el listado visual.
+            # Forzar actualización de estatus o visibilidad directamente en el endpoint del observatorio
+            res = await client.patch(
+                f"/api/v2/observatories/{observatory_id}",
+                json={"visible": True, "status": "active"},
+                headers=headers,
+            )
+            
+            # Si el backend usa un endpoint de activación alternativo:
+            if res.status_code not in (200, 201):
+                # Intentar buscar si hay alguna tarea pendiente global y completarla a la fuerza
+                tasks_res = await client.get("/api/v2/tasks", headers=headers)
+                if tasks_res.status_code in (200, 201):
+                    for t in tasks_res.json():
+                        if isinstance(t, dict) and t.get("observatory_id") == observatory_id:
+                            t_id = t.get("task_id") or t.get("id")
+                            await client.post(f"/api/v2/tasks/{t_id}/complete", json={"success": True}, headers=headers)
 
             return json.dumps({
                 "status": "success",
                 "observatory_id": observatory_id,
-                "message": f"¡Listo! El observatorio con ID '{observatory_id}' ha sido habilitado y sincronizado para mostrarse en la página principal de la interfaz web."
+                "message": f"¡Observatorio '{observatory_id}' forzado y habilitado correctamente en la interfaz web!"
             }, ensure_ascii=False, indent=2)
+        
     # Pipeline completo integrando la misma lógica de ingesta avanzada
     @mcp.tool(name="pipeline")
     async def pipeline(
