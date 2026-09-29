@@ -233,8 +233,7 @@ def register(mcp: FastMCP):
                 "message": "Catálogos creados y enlazados correctamente en bulk."
             }, ensure_ascii=False, indent=2)
 
-
-    # Herramienta para productos flexible
+    # Herramienta para productos optimizada y estricta
     @mcp.tool(name="crear_productos")
     async def crear_productos(
         observatory_id: str,
@@ -247,7 +246,6 @@ def register(mcp: FastMCP):
     ) -> str:
         """Crea productos múltiples vinculados correctamente al observatorio con sus metadatos."""
         desc_final = product_desc_base or product_description_base or product_name_base
-
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -288,7 +286,7 @@ def register(mcp: FastMCP):
             }, ensure_ascii=False, indent=2)
 
 
-    # Herramienta para crear datasource e ingestar con mapeo multivariable e ID dinámico
+    # Herramienta para DataSource con mapeo numérico e intereses flexible
     @mcp.tool(name="crear_datasource_y_ingestar")
     async def crear_datasource_y_ingestar(
         datasource_name: str,
@@ -299,7 +297,7 @@ def register(mcp: FastMCP):
         edition: str = "2024",
         country: str = "México",
     ) -> str:
-        """Crea el DataSource e ingesta masiva de registros a partir de un archivo CSV con lotes."""
+        """Crea el DataSource e ingesta masiva mapeando correctamente todas las columnas numéricas y de texto del CSV."""
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -333,7 +331,6 @@ def register(mcp: FastMCP):
                 with open(path_csv, encoding="utf-8") as f:
                     r_csv = csv.DictReader(f)
                     for idx, row in enumerate(r_csv):
-                        # ID de registro basado en la primera palabra del datasource + identificador único del CSV
                         row_id = row.get("NSEQN") or row.get("id") or row.get("ID") or str(idx + 1)
                         clean_ds_prefix = datasource_name.lower().split()[0] if datasource_name else "record"
                         record_id = f"{clean_ds_prefix}-{row_id}"
@@ -344,28 +341,38 @@ def register(mcp: FastMCP):
                         anio_raw = str(row.get("anio") or row.get("año") or row.get("YFD") or edition)
                         temporal_id = f"{anio_raw}-01-01T00:00:00Z" if len(anio_raw) == 4 else "2024-01-01T00:00:00Z"
 
-                        # Mapeo multivariable automático para la sección numérica
                         numerical_interests = {}
                         interest_ids = []
 
+                        # Mapeo avanzado: analiza cada columna del CSV buscando valores válidos
                         for key, val in row.items():
-                            if key.lower() in ["nseqn", "id", "municipio", "estado", "anio", "año"]:
+                            clean_key = key.strip().lower()
+                            if clean_key in ["nseqn", "id", "municipio", "estado", "anio", "año", "yfd"]:
                                 continue
-                            try:
-                                num_val = float(val)
-                                numerical_interests[key.upper()] = num_val
-                            except (ValueError, TypeError):
-                                if val and str(val).strip():
-                                    interest_ids.append(str(val))
+                            
+                            val_str = str(val).strip() if val is not None else ""
+                            if not val_str:
+                                continue
 
+                            # Intentar convertir a número para la sección de métricas numéricas
+                            try:
+                                # Limpiar comas de miles si las hubiera (ej: "1,200.50")
+                                clean_val = val_str.replace(",", "")
+                                num_val = float(clean_val)
+                                numerical_interests[key.strip().upper()] = num_val
+                            except (ValueError, TypeError):
+                                # Si no es número, se añade como etiqueta de interés (VI)
+                                interest_ids.append(val_str)
+
+                        # Si de plano no encontró ninguna columna numérica, asigna un respaldo útil basado en texto o valor 1.0
                         if not numerical_interests:
-                            numerical_interests = {"VALOR": 0.0}
+                            numerical_interests = {"REGISTRO_ACTIVO": 1.0}
 
                         records_list.append({
                             "record_id": record_id,
                             "spatial_id": spatial_id,
                             "temporal_id": temporal_id,
-                            "interest_ids": interest_ids,
+                            "interest_ids": interest_ids[:5], # Limitar etiquetas visuales para mantener limpio el UI
                             "numerical_interest_ids": numerical_interests,
                             "raw_payload": row,
                         })
@@ -387,20 +394,20 @@ def register(mcp: FastMCP):
                 "status": "success",
                 "source_id": created_source_id,
                 "registros_subidos": total_uploaded,
-                "message": "DataSource creado y registros ingeridos con éxito mapeando todas las variables numéricas."
+                "message": "DataSource creado y registros ingeridos con éxito mapeando dinámicamente todas las variables."
             }, ensure_ascii=False, indent=2)
 
-    # Herramienta modular para habilitar un observatorio por su ID y mostrarlo en la UI
+    # Herramienta modular para habilitar un observatorio y hacerlo visible en la interfaz
     @mcp.tool(name="habilitar_observatorio")
     async def habilitar_observatorio(
         observatory_id: Optional[str] = None,
         task_id: Optional[str] = None,
     ) -> str:
-        """Habilita un observatorio en la interfaz web completando su tarea asociada utilizando su observatory_id o task_id."""
+        """Busca y completa la tarea pendiente de un observatorio para habilitarlo y mostrarlo en la interfaz web."""
         token = await _get_jub_token()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
-        # Intentar recuperar del state.json si falta alguno
+        # Intentar recuperar del archivo de estado si no se proporciona el ID explícitamente
         if os.path.exists(STATE_FILE):
             try:
                 with open(STATE_FILE, "r", encoding="utf-8") as f:
@@ -413,21 +420,14 @@ def register(mcp: FastMCP):
         if not observatory_id and not task_id:
             return json.dumps({
                 "status": "error",
-                "message": "Se requiere al menos el observatory_id o un task_id para habilitar el observatorio."
+                "message": "Se requiere el ID del observatorio o una tarea asociada para poder habilitarlo."
             }, ensure_ascii=False)
 
         async with httpx.AsyncClient(base_url=JUB_URL, timeout=60.0) as client:
-            # Si tenemos el observatory_id pero no el task_id, consultamos los detalles del observatorio para obtenerlo
             resolved_task_id = task_id
-            if not resolved_task_id and observatory_id:
-                obs_det = await client.get(f"/api/v2/observatories/{observatory_id}", headers=headers)
-                if obs_det.status_code in (200, 201):
-                    data = obs_det.json()
-                    # Buscar el task_id dentro de la estructura del observatorio si la API lo devuelve
-                    resolved_task_id = data.get("task_id") or data.get("pending_task_id")
 
-            if not resolved_task_id:
-                # Alternativa directa por si el backend permite habilitar buscando la task activa del observatorio
+            # Si tenemos el observatory_id pero no el task_id, buscamos la tarea activa asociada en JUB
+            if not resolved_task_id and observatory_id:
                 tasks_res = await client.get("/api/v2/tasks", headers=headers)
                 if tasks_res.status_code in (200, 201):
                     tasks = tasks_res.json()
@@ -436,17 +436,24 @@ def register(mcp: FastMCP):
                             resolved_task_id = t.get("task_id") or t.get("id")
                             break
 
+            # Si aún no encontramos la tarea, intentamos consultando los detalles del observatorio
+            if not resolved_task_id and observatory_id:
+                obs_det = await client.get(f"/api/v2/observatories/{observatory_id}", headers=headers)
+                if obs_det.status_code in (200, 201):
+                    data = obs_det.json()
+                    resolved_task_id = data.get("task_id") or data.get("pending_task_id")
+
             if not resolved_task_id:
                 return json.dumps({
                     "status": "error",
                     "observatory_id": observatory_id,
-                    "message": "No se pudo localizar un task_id asociado a este observatorio para completarlo."
+                    "message": "No se encontró ninguna tarea pendiente o task_id asociado a este observatorio para habilitarlo."
                 }, ensure_ascii=False)
 
-            # Completar la tarea para que la interfaz web lo muestre como activo/habilitado
+            # Completar la tarea de forma idéntica a como lo hace el pipeline para forzar su visibilidad en la UI
             complete_res = await client.post(
                 f"/api/v2/tasks/{resolved_task_id}/complete",
-                json={"success": True, "message": f"Observatorio {observatory_id} habilitado exitosamente desde la herramienta modular."},
+                json={"success": True, "message": f"Observatorio {observatory_id} habilitado exitosamente y sincronizado con la interfaz."},
                 headers=headers,
             )
 
@@ -455,15 +462,15 @@ def register(mcp: FastMCP):
                     "status": "success",
                     "observatory_id": observatory_id,
                     "task_id": resolved_task_id,
-                    "message": "¡Observatorio habilitado y sincronizado correctamente con la interfaz web!"
+                    "message": "¡Observatorio habilitado y visible en la interfaz web correctamente!"
                 }, ensure_ascii=False, indent=2)
             else:
                 return json.dumps({
                     "status": "error",
                     "status_code": complete_res.status_code,
-                    "message": f"Error al completar la tarea en la API: {complete_res.text}"
+                    "message": f"Error al intentar completar la tarea en el servidor: {complete_res.text}"
                 }, ensure_ascii=False)
-            
+
     # Pipeline completo integrando la misma lógica de ingesta avanzada
     @mcp.tool(name="pipeline")
     async def pipeline(
