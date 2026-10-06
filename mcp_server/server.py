@@ -25,17 +25,17 @@ mcp = FastMCP(
     ),
 )
 
-basic.register(mcp)
-catalog.register(mcp)
-csv_converter.register(mcp)
-observatory.register(mcp)
-datasource.register(mcp)
-products.register(mcp)
+#basic.register(mcp)
+#catalog.register(mcp)
+#csv_converter.register(mcp)
+#observatory.register(mcp)
+#datasource.register(mcp)
+#products.register(mcp)
 queries.register(mcp)
-service.register(mcp)
+#service.register(mcp)
 
 # 2. Registra el pipeline en el servidor MCP
-index.register(mcp)
+#index.register(mcp)
 
 if __name__ == "__main__":
     mcp.run(
