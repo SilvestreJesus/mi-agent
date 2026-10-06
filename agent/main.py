@@ -15,104 +15,156 @@ from pydantic import BaseModel
 
 from tutor_agent import build_agent
 
-# Archivo de persistencia de conversaciones
+
+# ============================================================
+# CONFIGURACIÓN
+# ============================================================
+
 SESSIONS_FILE = "sessions_history.json"
+
 sessions_db: Dict[str, Any] = {}
 active_session_agents: Dict[str, Any] = {}
-active_session_files: Dict[str, List[str]] = {} 
-active_session_images: Dict[str, List[str]] = {} 
+active_session_files: Dict[str, List[str]] = {}
+active_session_images: Dict[str, List[str]] = {}
 active_session_source_ids: Dict[str, str] = {}
 
 file_lock = asyncio.Lock()
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".tiff"}
-URL_IMAGE_PATTERN = re.compile(r'https?://[^\s]+\.(?:jpg|jpeg|png|gif|webp|bmp|svg|tiff)(?:\?[^\s]*)?', re.IGNORECASE)
 
-# Configuración de URLs y Credenciales desde Entorno / .env
+URL_IMAGE_PATTERN = re.compile(
+    r'https?://[^\s]+\.(?:jpg|jpeg|png|gif|webp|bmp|svg|tiff)(?:\?[^\s]*)?',
+    re.IGNORECASE
+)
+
+JSON_FILENAME_PATTERN = re.compile(r'([\w\-]+\.json)', re.IGNORECASE)
+
 MCP_SERVER_URL = os.environ.get("MCP_SERVER_URL", "http://mcp-server:8000/mcp")
 MCP_HTTP_BASE = MCP_SERVER_URL[:-4] if MCP_SERVER_URL.endswith("/mcp") else MCP_SERVER_URL
 
-JUB_URL = os.environ.get("JUB_API_URL", "http://localhost:5000")
-JUB_USER = os.environ.get("JUB_USERNAME", "invitado")
-JUB_PASS = os.environ.get("JUB_PASSWORD", "invitado")
-
-# Directorios de volúmenes compartidos
 SHARED_UPLOAD_DIR = os.environ.get("SHARED_UPLOAD_DIR", "/app/sources")
 SHARED_IMAGE_DIR = os.environ.get("SHARED_IMAGE_DIR", "/app/images")
 
 os.makedirs(SHARED_UPLOAD_DIR, exist_ok=True)
 os.makedirs(SHARED_IMAGE_DIR, exist_ok=True)
 
-JSON_FILENAME_PATTERN = re.compile(r'([\w\-]+\.json)')
 
+# ============================================================
+# SESIONES
+# ============================================================
 
 def load_sessions() -> dict:
-    if os.path.exists(SESSIONS_FILE):
-        try:
-            with open(SESSIONS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-    return {}
+    """Recupera el historial de conversaciones."""
+    if not os.path.exists(SESSIONS_FILE):
+        return {}
+
+    try:
+        with open(SESSIONS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception as exc:
+        print(f"[WARN] No se pudieron cargar las sesiones: {exc}")
+        return {}
 
 
 async def save_sessions_async():
-    """Guarda las sesiones de forma asíncrona evitando bloqueos de I/O."""
+    """Guarda las sesiones evitando escrituras simultáneas."""
     async with file_lock:
         async with aiofiles.open(SESSIONS_FILE, "w", encoding="utf-8") as f:
             await f.write(json.dumps(sessions_db, ensure_ascii=False, indent=2))
 
 
 def extraer_archivos_json(texto: str) -> List[str]:
+    """Detecta archivos JSON mencionados en la respuesta del agente."""
+    if not texto:
+        return []
     return list(dict.fromkeys(JSON_FILENAME_PATTERN.findall(texto)))
 
 
-async def _get_jub_token() -> Optional[str]:
-    """Helper para autenticarse en JUB API y obtener el token de acceso."""
-    try:
-        async with httpx.AsyncClient(base_url=JUB_URL, timeout=10.0) as client:
-            auth_res = await client.post(
-                "/api/v2/users/auth",
-                json={"username": JUB_USER, "password": JUB_PASS},
-            )
-            if auth_res.status_code in (200, 201):
-                data = auth_res.json()
-                return data.get("access_token") or data.get("token")
-    except Exception:
-        pass
-    return None
-
-
 async def close_agent_session(session_id: str):
-    """Cierra limpiamente el cliente MCP asociado a la sesión."""
+    """Cierra correctamente el agente y su conexión MCP."""
     agent = active_session_agents.pop(session_id, None)
-    if agent:
-        try:
-            await agent.__aexit__(None, None, None)
-        except Exception:
-            pass
 
+    if not agent:
+        return
+
+    try:
+        await agent.__aexit__(None, None, None)
+    except Exception as exc:
+        print(f"[WARN] Error cerrando agente {session_id}: {exc}")
+
+
+async def get_session_agent(session_id: str):
+    """Obtiene el agente de una sesión o crea uno nuevo."""
+    if session_id in active_session_agents:
+        return active_session_agents[session_id]
+
+    agent = build_agent()
+    await agent.__aenter__()
+    active_session_agents[session_id] = agent
+
+    return agent
+
+
+async def guardar_interaccion(session_id: str, user_message: str, assistant_message: str):
+    """Guarda una interacción usuario/agente."""
+    session_data = sessions_db[session_id]
+
+    session_data["messages"].append({
+        "role": "user",
+        "content": user_message
+    })
+
+    session_data["messages"].append({
+        "role": "assistant",
+        "content": assistant_message
+    })
+
+    await save_sessions_async()
+
+
+# ============================================================
+# LIFESPAN
+# ============================================================
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global sessions_db
+
     sessions_db = load_sessions()
+    print(f"[INFO] Sesiones cargadas: {len(sessions_db)}")
+
     yield
+
     await save_sessions_async()
-    for sid in list(active_session_agents.keys()):
-        await close_agent_session(sid)
+
+    for session_id in list(active_session_agents.keys()):
+        await close_agent_session(session_id)
 
 
-app = FastAPI(title="JUB Agent with Pipeline Integration", lifespan=lifespan)
+# ============================================================
+# FASTAPI
+# ============================================================
+
+app = FastAPI(
+    title="JUB Agent with MCP Integration",
+    description="Backend conversacional del Agente JUB con Ollama + MCP + API JUB.",
+    version="2.0.0",
+    lifespan=lifespan
+)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"]
 )
 
+
+# ============================================================
+# MODELOS
+# ============================================================
 
 class DownloadItem(BaseModel):
     name: str
@@ -131,20 +183,36 @@ class SessionSummary(BaseModel):
     title: str
 
 
+# ============================================================
+# HEALTH
+# ============================================================
+
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "service": "jub-agent",
+        "mcp_server": MCP_SERVER_URL
+    }
 
+
+# ============================================================
+# SESIONES
+# ============================================================
 
 @app.get("/sessions", response_model=List[SessionSummary])
 async def list_sessions():
-    return [{"id": sid, "title": data.get("title", "Nueva conversación")} for sid, data in sessions_db.items()]
+    return [
+        {"id": sid, "title": data.get("title", "Nueva conversación")}
+        for sid, data in sessions_db.items()
+    ]
 
 
 @app.get("/sessions/{session_id}")
 async def get_session(session_id: str):
     if session_id not in sessions_db:
         raise HTTPException(status_code=404, detail="Sesión no encontrada")
+
     return sessions_db[session_id]
 
 
@@ -153,59 +221,161 @@ async def delete_session(session_id: str):
     if session_id in sessions_db:
         del sessions_db[session_id]
         await save_sessions_async()
-    
+
     await close_agent_session(session_id)
+
     active_session_files.pop(session_id, None)
     active_session_images.pop(session_id, None)
     active_session_source_ids.pop(session_id, None)
-    
-    return {"status": "deleted"}
+
+    return {
+        "status": "deleted",
+        "session_id": session_id
+    }
+
+
+# ============================================================
+# ARCHIVOS MCP
+# ============================================================
+
+async def listar_archivos_mcp(source_id: Optional[str] = None) -> List[dict]:
+    """Lista los archivos generados disponibles en MCP."""
+    url = f"{MCP_HTTP_BASE}/files"
+    params = {"source_id": source_id} if source_id else None
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(url, params=params)
+
+        response.raise_for_status()
+        data = response.json()
+
+        if not isinstance(data, dict):
+            return []
+
+        files = data.get("files", [])
+        return files if isinstance(files, list) else []
+
+    except Exception as exc:
+        print(f"[WARN] No se pudieron listar archivos MCP: {exc}")
+        return []
 
 
 @app.get("/download/{filename}")
 async def descargar_archivo(filename: str):
+    """Descarga exclusivamente archivos JSON generados por MCP."""
+
     if "/" in filename or "\\" in filename or ".." in filename:
         raise HTTPException(status_code=400, detail="Nombre de archivo inválido")
+
+    if not filename.lower().endswith(".json"):
+        raise HTTPException(status_code=400, detail="Solo se permite descargar archivos JSON.")
 
     url = f"{MCP_HTTP_BASE}/files/{filename}"
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.get(url)
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=502, detail=f"No se pudo contactar al servidor MCP: {e}")
+            response = await client.get(url)
 
-    if resp.status_code == 404:
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"No se pudo contactar al servidor MCP: {exc}"
+        )
+
+    if response.status_code == 404:
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
-    if resp.status_code != 200:
-        raise HTTPException(status_code=resp.status_code, detail="No se pudo obtener el archivo")
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=response.status_code,
+            detail="No se pudo obtener el archivo."
+        )
 
     return StreamingResponse(
-        iter([resp.content]),
+        iter([response.content]),
         media_type="application/json",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
 
-async def listar_archivos_mcp(source_id: Optional[str] = None) -> List[dict]:
-    url = f"{MCP_HTTP_BASE}/files"
-    params = {"source_id": source_id} if source_id else None
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        resp = await client.get(url, params=params)
-    resp.raise_for_status()
-    return resp.json().get("files", [])
+# ============================================================
+# GUARDADO DE ARCHIVOS
+# ============================================================
 
+async def guardar_upload(uploaded_file: UploadFile, directory: str) -> str:
+    """Guarda un UploadFile evitando rutas inseguras."""
+    filename = os.path.basename(uploaded_file.filename or "")
+
+    if not filename:
+        raise ValueError("El archivo no tiene un nombre válido.")
+
+    file_path = os.path.join(directory, filename)
+
+    async with aiofiles.open(file_path, "wb") as out_file:
+        while True:
+            chunk = await uploaded_file.read(1024 * 1024)
+
+            if not chunk:
+                break
+
+            await out_file.write(chunk)
+
+    return filename
+
+
+async def descargar_imagen_url(url: str) -> Optional[str]:
+    """Descarga una imagen externa y devuelve su nombre local."""
+    try:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            response = await client.get(url)
+
+        if response.status_code != 200:
+            print(f"[WARN] No se pudo descargar {url}. HTTP {response.status_code}")
+            return None
+
+        filename = os.path.basename(url.split("?")[0].split("/")[-1])
+        extension = os.path.splitext(filename)[1].lower()
+
+        if not filename or extension not in IMAGE_EXTENSIONS:
+            filename = f"web_image_{uuid.uuid4().hex[:8]}.jpg"
+
+        image_path = os.path.join(SHARED_IMAGE_DIR, filename)
+
+        async with aiofiles.open(image_path, "wb") as out_file:
+            await out_file.write(response.content)
+
+        return filename
+
+    except Exception as exc:
+        print(f"[WARN] No fue posible descargar {url}: {exc}")
+        return None
+
+
+# ============================================================
+# CHAT
+# ============================================================
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(
     request: Request,
-    message: str = Form(...),
+    message: str = Form(""),
     file: Optional[List[UploadFile]] = File(None),
     session_id: Optional[str] = Form(None)
 ):
+    message = (message or "").strip()
+
+    if not message and not file:
+        raise HTTPException(status_code=400, detail="Debes enviar un mensaje o un archivo.")
+
+    # --------------------------------------------------------
+    # CREAR O RECUPERAR SESIÓN
+    # --------------------------------------------------------
+
     if not session_id or session_id not in sessions_db:
         session_id = str(uuid.uuid4())
-        title = message[:30] + ("..." if len(message) > 30 else "")
+        title = message[:30] + ("..." if len(message) > 30 else "") if message else "Nueva conversación"
+
         sessions_db[session_id] = {
             "title": title,
             "messages": []
@@ -215,240 +385,237 @@ async def chat(
     base = str(request.base_url).rstrip("/")
     msg_lower = message.lower()
 
-    # 1. Interceptar preguntas sobre el estado de conexión del servidor JUB
-    if not file and any(k in msg_lower for k in ["está conectado", "esta conectado", "conexión activa", "conexion activa", "backend"]):
-        token = await _get_jub_token()
-        conexion_exitosa = token is not None
+    # --------------------------------------------------------
+    # AUDITORÍA LOCAL DE ARCHIVOS JSON
+    #
+    # Esta es la única intención que FastAPI resuelve
+    # directamente porque pertenece a la interfaz y no
+    # representa una consulta de negocio de JUB.
+    # --------------------------------------------------------
 
-        if conexion_exitosa:
-            respuesta_texto = f"── Conexión con JUB activa ─────────────────────────────\n\nEl sistema está correctamente conectado a la API de JUB en {JUB_URL}."
-        else:
-            respuesta_texto = f"── Sin conexión con el servidor ────────────────────────\n\nNo fue posible establecer comunicación con el servidor JUB en {JUB_URL}."
+    audit_keywords = [
+        "archivos json",
+        "json generados",
+        "muéstrame los archivos",
+        "muestrame los archivos",
+        "archivos generados"
+    ]
 
-        session_data["messages"].append({"role": "user", "content": message})
-        session_data["messages"].append({"role": "assistant", "content": respuesta_texto})
-        await save_sessions_async()
+    if not file and any(keyword in msg_lower for keyword in audit_keywords):
+        mcp_files = await listar_archivos_mcp()
 
-        return ChatResponse(
-            session_id=session_id,
-            title=session_data["title"],
-            text=respuesta_texto,
-            downloads=None,
-        )
+        json_archivos = [
+            item["name"]
+            for item in mcp_files
+            if isinstance(item, dict)
+            and isinstance(item.get("name"), str)
+            and item["name"].lower().endswith(".json")
+        ]
 
-    # 2. INTERCEPCIÓN DIRECTA: Habilitar observatorio y hacerlo visible en la interfaz web por ID (Colocado ANTES del listado)
-    if not file and ("habilita" in msg_lower or "muestra el observatorio" in msg_lower or "hazlo visible" in msg_lower or "en la plataforma" in msg_lower):
-        words = message.split()
-        target_id = None
-        for i, w in enumerate(words):
-            if w.lower() in ["id:", "id"] and i + 1 < len(words):
-                target_id = words[i + 1].strip(".,")
-                break
-        
-        if not target_id:
-            for w in words:
-                clean_w = w.strip(".,`'\"")
-                if len(clean_w) >= 8 and any(c.isupper() for c in clean_w) and any(c.islower() for c in clean_w):
-                    target_id = clean_w
-                    break
+        downloads: List[DownloadItem] = []
 
-        token = await _get_jub_token()
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
-        
-        resolved_task_id = None
-        async with httpx.AsyncClient(base_url=JUB_URL, timeout=15.0) as client:
-            tasks_res = await client.get("/api/v2/tasks", headers=headers)
-            if tasks_res.status_code in (200, 201):
-                tasks = tasks_res.json()
-                for t in tasks:
-                    if isinstance(t, dict):
-                        o_id = t.get("observatory_id") or t.get("target_id")
-                        if not target_id or o_id == target_id:
-                            resolved_task_id = t.get("task_id") or t.get("id")
-                            if target_id:
-                                break
-
-            if resolved_task_id:
-                complete_res = await client.post(
-                    f"/api/v2/tasks/{resolved_task_id}/complete",
-                    json={"success": True, "message": "Observatorio habilitado exitosamente desde la interfaz de chat."},
-                    headers=headers,
-                )
-                if complete_res.status_code in (200, 201):
-                    respuesta_texto = f"── Observatorio Habilitado ─────────────────────────────\n\n¡El observatorio (ID: `{target_id or 'activo'}`) ha sido habilitado y sincronizado con éxito! Ya aparece visible y activo en la interfaz web."
-                else:
-                    respuesta_texto = f"Error al intentar completar la tarea de activación en la API: {complete_res.text}"
-            else:
-                respuesta_texto = f"No se encontró ninguna tarea pendiente asociada al observatorio '{target_id or 'general'}' para habilitarlo."
-
-        session_data["messages"].append({"role": "user", "content": message})
-        session_data["messages"].append({"role": "assistant", "content": respuesta_texto})
-        await save_sessions_async()
-
-        return ChatResponse(
-            session_id=session_id,
-            title=session_data["title"],
-            text=respuesta_texto,
-            downloads=None,
-        )
-
-    # 3. Interceptar solicitudes para listar observatorios consultando directamente la API de JUB
-    if not file and any(k in msg_lower for k in ["observatorio", "observatorios", "qué observatorios hay", "lista los observatorios", "que observatorios existen"]):
-        token = await _get_jub_token()
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
-        
-        observatorios_lista = []
-        try:
-            async with httpx.AsyncClient(base_url=JUB_URL, timeout=10.0) as client:
-                res = await client.get("/api/v2/observatories", headers=headers)
-                if res.status_code == 200:
-                    data = res.json()
-                    observatorios_lista = data if isinstance(data, list) else data.get("observatories", [])
-        except Exception:
-            pass
-
-        respuesta_texto = "── Observatorios Registrados en JUB ───────────────────\n\n"
-        if observatorios_lista:
-            for obs in observatorios_lista:
-                obs_id = obs.get("observatory_id") or obs.get("id") or "N/D"
-                obs_title = obs.get("title") or obs.get("name") or "Sin título"
-                respuesta_texto += f"• **{obs_title}** (ID: `{obs_id}`)\n"
-        else:
-            respuesta_texto += "No se pudieron recuperar observatorios activos o la lista está vacía actualmente en la API.\n"
-
-        session_data["messages"].append({"role": "user", "content": message})
-        session_data["messages"].append({"role": "assistant", "content": respuesta_texto})
-        await save_sessions_async()
-
-        return ChatResponse(
-            session_id=session_id,
-            title=session_data["title"],
-            text=respuesta_texto,
-            downloads=None,
-        )
-
-    # 4. Interceptar solicitud de Auditoría mostrando ÚNICAMENTE archivos JSON (ocultando CSVs)
-    if not file and any(k in msg_lower for k in ["archivos json", "json generados", "muéstrame los archivos"]):
-        json_archivos = []
-        try:
-            mcp_files = await listar_archivos_mcp()
-            json_archivos = [f["name"] for f in mcp_files if f["name"].endswith(".json")]
-        except Exception:
-            pass
-
-        respuesta_texto = "── Auditoría de Archivos JSON Generados ───────────────\n\n"
-        downloads = []
-        
         if json_archivos:
-            respuesta_texto += "📄 Archivos JSON disponibles para descarga:\n"
-            for j in json_archivos:
-                respuesta_texto += f"  - {j}\n"
-                downloads.append(DownloadItem(name=j, url=f"{base}/download/{j}"))
-        else:
-            respuesta_texto += "  (Ningún archivo JSON generado todavía en el sistema)\n"
-            downloads = None
+            respuesta_texto = "── Auditoría de Archivos JSON Generados ───────────────────\n\n"
+            respuesta_texto += "Archivos JSON disponibles:\n\n"
 
-        session_data["messages"].append({"role": "user", "content": message})
-        session_data["messages"].append({"role": "assistant", "content": respuesta_texto})
-        await save_sessions_async()
+            for nombre in json_archivos:
+                respuesta_texto += f"- `{nombre}`\n"
+                downloads.append(
+                    DownloadItem(
+                        name=nombre,
+                        url=f"{base}/download/{nombre}"
+                    )
+                )
+        else:
+            respuesta_texto = (
+                "── Auditoría de Archivos JSON Generados ───────────────────\n\n"
+                "No existen archivos JSON generados actualmente."
+            )
+
+        await guardar_interaccion(session_id, message, respuesta_texto)
 
         return ChatResponse(
             session_id=session_id,
             title=session_data["title"],
             text=respuesta_texto,
-            downloads=downloads if downloads else None,
+            downloads=downloads or None
         )
 
-    # 5. Flujo principal del Agente de Inteligencia Artificial (Ollama + MCP Tools)
-    if session_id not in active_session_agents:
-        agent = build_agent()
-        await agent.__aenter__()
-        active_session_agents[session_id] = agent
+    # --------------------------------------------------------
+    # ARCHIVOS ADJUNTOS
+    # --------------------------------------------------------
 
-    agent = active_session_agents[session_id]
+    file_info_list: List[str] = []
 
-    file_info_list = []
-    
-    # ── Manejo de Archivos Subidos Físicamente (FormData) ──
     if file:
-        if session_id not in active_session_files:
-            active_session_files[session_id] = []
-        if session_id not in active_session_images:
-            active_session_images[session_id] = []
-            
-        for f in file:
-            if f.filename: 
-                ext = os.path.splitext(f.filename)[1].lower()
+        active_session_files.setdefault(session_id, [])
+        active_session_images.setdefault(session_id, [])
 
-                if ext in IMAGE_EXTENSIONS:
-                    file_path = os.path.join(SHARED_IMAGE_DIR, f.filename)
-                    async with aiofiles.open(file_path, "wb") as out_file:
-                        while chunk := await f.read(1024 * 1024):
-                            await out_file.write(chunk)
+        for uploaded_file in file:
+            if not uploaded_file.filename:
+                continue
 
-                    active_session_images[session_id].append(f.filename)
-                    file_info_list.append(f"[Imagen adjunta guardada con éxito en '/app/images/{f.filename}']")
+            filename = os.path.basename(uploaded_file.filename)
+            extension = os.path.splitext(filename)[1].lower()
+
+            try:
+                if extension in IMAGE_EXTENSIONS:
+                    saved_name = await guardar_upload(uploaded_file, SHARED_IMAGE_DIR)
+
+                    if saved_name not in active_session_images[session_id]:
+                        active_session_images[session_id].append(saved_name)
+
+                    file_info_list.append(
+                        f"[Imagen adjunta disponible en '/app/images/{saved_name}'. "
+                        "Si el usuario solicita analizarla, utiliza la herramienta MCP de visión.]"
+                    )
+
                 else:
-                    file_path = os.path.join(SHARED_UPLOAD_DIR, f.filename)
-                    async with aiofiles.open(file_path, "wb") as out_file:
-                        while chunk := await f.read(1024 * 1024):
-                            await out_file.write(chunk)
+                    saved_name = await guardar_upload(uploaded_file, SHARED_UPLOAD_DIR)
 
-                    active_session_files[session_id].append(f.filename)
-                    file_info_list.append(f"[Archivo CSV guardado exitosamente en '/app/sources/{f.filename}'. Usa 'csv_filename=\"{f.filename}\"']")
+                    if saved_name not in active_session_files[session_id]:
+                        active_session_files[session_id].append(saved_name)
 
-    # ── Detección automática de URLs de Imágenes web (Pexels, Pixabay, etc.) ──
-    detected_urls = URL_IMAGE_PATTERN.findall(message)
+                    file_info_list.append(
+                        f"[Archivo de datos disponible en '/app/sources/{saved_name}'. "
+                        f"Si una herramienta solicita csv_filename utiliza '{saved_name}'.]"
+                    )
+
+            except Exception as exc:
+                file_info_list.append(
+                    f"[No fue posible guardar el archivo '{filename}': {exc}]"
+                )
+
+    # --------------------------------------------------------
+    # IMÁGENES MEDIANTE URL
+    # --------------------------------------------------------
+
+    detected_urls = URL_IMAGE_PATTERN.findall(message) if message else []
+
     if detected_urls:
-        if session_id not in active_session_images:
-            active_session_images[session_id] = []
-            
-        async with httpx.AsyncClient(timeout=30.0) as url_client:
-            for url_img in detected_urls:
-                try:
-                    img_resp = await url_client.get(url_img)
-                    if img_resp.status_code == 200:
-                        parsed_name = url_img.split("?")[0].split("/")[-1]
-                        if not any(parsed_name.endswith(ext) for ext in IMAGE_EXTENSIONS):
-                            parsed_name = f"web_image_{uuid.uuid4().hex[:6]}.jpg"
-                        
-                        img_path = os.path.join(SHARED_IMAGE_DIR, parsed_name)
-                        async with aiofiles.open(img_path, "wb") as out_img:
-                            await out_img.write(img_resp.content)
-                        
-                        if parsed_name not in active_session_images[session_id]:
-                            active_session_images[session_id].append(parsed_name)
-                        
-                        file_info_list.append(f"[Imagen externa descargada desde URL y guardada en '/app/images/{parsed_name}'. URL original: {url_img}]")
-                except Exception as e:
-                    file_info_list.append(f"[Aviso: No se pudo descargar la imagen desde la URL {url_img}: {str(e)}]")
+        active_session_images.setdefault(session_id, [])
 
-    elif session_id in active_session_files or session_id in active_session_images:
-        for filename in active_session_files.get(session_id, []):
-            if os.path.exists(os.path.join(SHARED_UPLOAD_DIR, filename)):
-                file_info_list.append(f"[Recordatorio de contexto: El archivo CSV '{filename}' está disponible en '/app/sources/']")
-        for imgname in active_session_images.get(session_id, []):
-             if os.path.exists(os.path.join(SHARED_IMAGE_DIR, imgname)):
-                file_info_list.append(f"[Recordatorio de contexto: La imagen '{imgname}' está disponible en '/app/images/']")
+        for url_img in detected_urls:
+            filename = await descargar_imagen_url(url_img)
 
-    file_info = "\n\n" + "\n".join(file_info_list) if file_info_list else ""
-    prompt_completo = message + file_info
+            if not filename:
+                file_info_list.append(
+                    f"[No fue posible descargar la imagen externa: {url_img}]"
+                )
+                continue
 
-    result = await agent.run(prompt_completo)
-    respuesta_texto = getattr(result, "text", str(result))
+            if filename not in active_session_images[session_id]:
+                active_session_images[session_id].append(filename)
+
+            file_info_list.append(
+                f"[Imagen externa disponible en '/app/images/{filename}'. URL original: {url_img}]"
+            )
+
+    # --------------------------------------------------------
+    # CONTEXTO DE ARCHIVOS DISPONIBLES
+    # --------------------------------------------------------
+
+    archivos_disponibles = [
+        filename
+        for filename in active_session_files.get(session_id, [])
+        if os.path.exists(os.path.join(SHARED_UPLOAD_DIR, filename))
+    ]
+
+    imagenes_disponibles = [
+        filename
+        for filename in active_session_images.get(session_id, [])
+        if os.path.exists(os.path.join(SHARED_IMAGE_DIR, filename))
+    ]
+
+    if archivos_disponibles:
+        file_info_list.append(
+            "Archivos de datos disponibles en esta conversación:\n"
+            + "\n".join(f"- {filename}" for filename in archivos_disponibles)
+        )
+
+    if imagenes_disponibles:
+        file_info_list.append(
+            "Imágenes disponibles en esta conversación:\n"
+            + "\n".join(f"- /app/images/{filename}" for filename in imagenes_disponibles)
+        )
+
+    # --------------------------------------------------------
+    # PROMPT PARA EL AGENTE
+    # --------------------------------------------------------
+
+    prompt_parts: List[str] = []
+
+    if file_info_list:
+        prompt_parts.append("\n".join(file_info_list))
+
+    prompt_parts.append(
+        f"Solicitud actual del usuario:\n{message}"
+        if message
+        else "Solicitud actual del usuario:\nAnaliza los archivos adjuntos."
+    )
+
+    prompt_completo = "\n\n".join(prompt_parts)
+
+    # --------------------------------------------------------
+    # AGENTE JUB
+    #
+    # Usuario
+    #   ↓
+    # Ollama / Agente JUB
+    #   ↓
+    # Herramientas MCP
+    #   ↓
+    # API JUB
+    #
+    # Aquí NO se interceptan palabras como:
+    # observatorio, producto, catálogo, datasource, etc.
+    # El agente debe interpretar la intención.
+    # --------------------------------------------------------
+
+    try:
+        agent = await get_session_agent(session_id)
+        result = await agent.run(prompt_completo)
+        respuesta_texto = getattr(result, "text", None) or str(result)
+
+    except Exception as exc:
+        print(f"[ERROR] Falló la ejecución del Agente JUB: {exc}")
+
+        respuesta_texto = (
+            "No fue posible completar la consulta mediante el Agente JUB.\n\n"
+            f"Detalle técnico: {exc}"
+        )
+
+    # --------------------------------------------------------
+    # DESCARGAS JSON MENCIONADAS POR EL AGENTE
+    # --------------------------------------------------------
 
     nombres_json = extraer_archivos_json(respuesta_texto)
-    downloads = None
-    if nombres_json:
-        downloads = [DownloadItem(name=n, url=f"{base}/download/{n}") for n in nombres_json]
 
-    session_data["messages"].append({"role": "user", "content": message})
-    session_data["messages"].append({"role": "assistant", "content": respuesta_texto})
-    await save_sessions_async()
+    downloads = [
+        DownloadItem(
+            name=nombre,
+            url=f"{base}/download/{nombre}"
+        )
+        for nombre in nombres_json
+    ]
+
+    # --------------------------------------------------------
+    # HISTORIAL
+    # --------------------------------------------------------
+
+    await guardar_interaccion(
+        session_id=session_id,
+        user_message=message,
+        assistant_message=respuesta_texto
+    )
+
+    # --------------------------------------------------------
+    # RESPUESTA
+    # --------------------------------------------------------
 
     return ChatResponse(
         session_id=session_id,
         title=session_data["title"],
         text=respuesta_texto,
-        downloads=downloads
+        downloads=downloads or None
     )
