@@ -74,7 +74,7 @@ _INSTRUCTIONS = (
 def build_agent() -> Agent:
     chat_client = OllamaChatClient(
         host=os.environ.get("OLLAMA_URL", "http://ollama:11434"),
-        model=os.environ.get("OLLAMA_MODEL", "qwen2.5:7b"),
+        model=os.environ.get("OLLAMA_MODEL", "qwen3:4b"),
     )
 
     return chat_client.as_agent(
