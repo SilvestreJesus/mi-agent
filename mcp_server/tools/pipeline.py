@@ -542,227 +542,227 @@ def register(mcp: FastMCP):
                 "message": f"¡El observatorio '{observatory_id}' ha sido forzado y sincronizado correctamente para mostrarse en la interfaz web!"
             }, ensure_ascii=False, indent=2)
 
-        @mcp.tool(name="pipeline")
-        async def pipeline(
-            observatory_title: Optional[str] = None,
-            observatory_description: Optional[str] = None,
-            institution: Optional[str] = None,
-            edition: Optional[str] = None,
-            country: Optional[str] = None,
-            csv_filename: Optional[str] = None,
-            product_name_base: Optional[str] = None,
-            product_description_base: Optional[str] = None,
-            product_id_base: Optional[str] = None,
-            start_year: Optional[str] = None,
-            end_year: Optional[str] = None,
-            datasource_name: Optional[str] = None,
-            datasource_description: Optional[str] = None,
-            image_url: Optional[str] = None,
-        ) -> str:
-            """Herramienta v2 optimizada para indexación integral completa con soporte para archivos CSV pesados."""
-            missing_params = []
-            if not observatory_title: missing_params.append("observatory_title")
-            if not observatory_description: missing_params.append("observatory_description")
-            if not institution: missing_params.append("institution")
-            if not edition: missing_params.append("edition")
-            if not country: missing_params.append("country")
-            if not csv_filename: missing_params.append("csv_filename")
-            if not product_name_base: missing_params.append("product_name_base")
-            if not product_description_base: missing_params.append("product_description_base")
-            if not datasource_name: missing_params.append("datasource_name")
-            if not datasource_description: missing_params.append("datasource_description")
-            if not start_year: missing_params.append("start_year")
-            if not end_year: missing_params.append("end_year")
-            if missing_params:
-                return json.dumps({"status": "missing_parameters", "message": "Faltan parámetros requeridos para indexar en JUB.", "missing_parameters": missing_params}, ensure_ascii=False, indent=2)
+    @mcp.tool(name="pipeline")
+    async def pipeline(
+        observatory_title: Optional[str] = None,
+        observatory_description: Optional[str] = None,
+        institution: Optional[str] = None,
+        edition: Optional[str] = None,
+        country: Optional[str] = None,
+        csv_filename: Optional[str] = None,
+        product_name_base: Optional[str] = None,
+        product_description_base: Optional[str] = None,
+        product_id_base: Optional[str] = None,
+        start_year: Optional[str] = None,
+        end_year: Optional[str] = None,
+        datasource_name: Optional[str] = None,
+        datasource_description: Optional[str] = None,
+        image_url: Optional[str] = None,
+    ) -> str:
+        """Herramienta v2 optimizada para indexación integral completa con soporte para archivos CSV pesados."""
+        missing_params = []
+        if not observatory_title: missing_params.append("observatory_title")
+        if not observatory_description: missing_params.append("observatory_description")
+        if not institution: missing_params.append("institution")
+        if not edition: missing_params.append("edition")
+        if not country: missing_params.append("country")
+        if not csv_filename: missing_params.append("csv_filename")
+        if not product_name_base: missing_params.append("product_name_base")
+        if not product_description_base: missing_params.append("product_description_base")
+        if not datasource_name: missing_params.append("datasource_name")
+        if not datasource_description: missing_params.append("datasource_description")
+        if not start_year: missing_params.append("start_year")
+        if not end_year: missing_params.append("end_year")
+        if missing_params:
+            return json.dumps({"status": "missing_parameters", "message": "Faltan parámetros requeridos para indexar en JUB.", "missing_parameters": missing_params}, ensure_ascii=False, indent=2)
 
-            steps_log: List[str] = []
-            warnings: List[str] = []
-            resumen: Dict[str, str] = {}
+        steps_log: List[str] = []
+        warnings: List[str] = []
+        resumen: Dict[str, str] = {}
 
-            SOURCES_DIR.mkdir(parents=True, exist_ok=True)
-            IMAGES_DIR.mkdir(parents=True, exist_ok=True)
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
+        SOURCES_DIR.mkdir(parents=True, exist_ok=True)
+        IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-            path_csv = resolve_existing_path(csv_filename)
-            if not path_csv.exists():
-                return json.dumps({"status": "error", "message": f"No se encontró el archivo CSV '{csv_filename}'."}, ensure_ascii=False, indent=2)
+        path_csv = resolve_existing_path(csv_filename)
+        if not path_csv.exists():
+            return json.dumps({"status": "error", "message": f"No se encontró el archivo CSV '{csv_filename}'."}, ensure_ascii=False, indent=2)
 
-            async with httpx.AsyncClient(base_url=JUB_URL, timeout=300.0) as client:
-                token = await _get_jub_token()
-                headers = {"Authorization": f"Bearer {token}"} if token else {}
+        async with httpx.AsyncClient(base_url=JUB_URL, timeout=300.0) as client:
+            token = await _get_jub_token()
+            headers = {"Authorization": f"Bearer {token}"} if token else {}
 
-                # 1. OBSERVATORIO
-                steps_log.append("[1/6] Creando Observatorio v2...")
-                setup_payload = {
-                    "title": observatory_title,
-                    "user_id": "usr_system",
-                    "description": observatory_description,
-                    "metadata": {"edition": edition, "country": country, "institution": institution},
-                }
-                if image_url:
-                    setup_payload["image_url"] = image_url
+            # 1. OBSERVATORIO
+            steps_log.append("[1/6] Creando Observatorio v2...")
+            setup_payload = {
+                "title": observatory_title,
+                "user_id": "usr_system",
+                "description": observatory_description,
+                "metadata": {"edition": edition, "country": country, "institution": institution},
+            }
+            if image_url:
+                setup_payload["image_url"] = image_url
 
-                obs_res = await client.post("/api/v2/observatories/setup", json=setup_payload, headers=headers)
-                if obs_res.status_code not in (200, 201):
-                    return json.dumps({"status": "error", "message": f"Error al crear el observatorio ({obs_res.status_code}).", "detalles": obs_res.text}, ensure_ascii=False, indent=2)
+            obs_res = await client.post("/api/v2/observatories/setup", json=setup_payload, headers=headers)
+            if obs_res.status_code not in (200, 201):
+                return json.dumps({"status": "error", "message": f"Error al crear el observatorio ({obs_res.status_code}).", "detalles": obs_res.text}, ensure_ascii=False, indent=2)
 
-                obs_data = obs_res.json()
-                observatory_id = obs_data.get("observatory_id")
-                task_id = obs_data.get("task_id")
-                if not observatory_id or not task_id:
-                    return json.dumps({"status": "error", "message": "JUB no devolvió observatory_id o task_id.", "respuesta": obs_data}, ensure_ascii=False, indent=2)
-                resumen["observatorio"] = f"Creado (ID: {observatory_id})"
+            obs_data = obs_res.json()
+            observatory_id = obs_data.get("observatory_id")
+            task_id = obs_data.get("task_id")
+            if not observatory_id or not task_id:
+                return json.dumps({"status": "error", "message": "JUB no devolvió observatory_id o task_id.", "respuesta": obs_data}, ensure_ascii=False, indent=2)
+            resumen["observatorio"] = f"Creado (ID: {observatory_id})"
 
-                # 2. CATÁLOGOS
-                steps_log.append("[2/6] Creando Catálogos...")
-                spatial_items, temporal_items = [], []
-                spatial_seen, temporal_seen = set(), set()
+            # 2. CATÁLOGOS
+            steps_log.append("[2/6] Creando Catálogos...")
+            spatial_items, temporal_items = [], []
+            spatial_seen, temporal_seen = set(), set()
 
-                with open(path_csv, encoding="utf-8") as f_csv:
-                    reader = csv.DictReader(f_csv)
-                    for row in reader:
-                        muni = row.get("municipio") or row.get("Municipio") or row.get("estado") or "General"
-                        s_val = muni.upper().replace(" ", "_")
-                        if s_val not in spatial_seen:
-                            spatial_seen.add(s_val)
-                            spatial_items.append({"name": muni, "value": s_val, "code": len(spatial_seen), "value_type": "STRING", "aliases": [], "children": []})
+            with open(path_csv, encoding="utf-8") as f_csv:
+                reader = csv.DictReader(f_csv)
+                for row in reader:
+                    muni = row.get("municipio") or row.get("Municipio") or row.get("estado") or "General"
+                    s_val = muni.upper().replace(" ", "_")
+                    if s_val not in spatial_seen:
+                        spatial_seen.add(s_val)
+                        spatial_items.append({"name": muni, "value": s_val, "code": len(spatial_seen), "value_type": "STRING", "aliases": [], "children": []})
 
-                        anio = str(row.get("anio") or row.get("año") or "2024")
-                        t_val = f"Y{anio}"
-                        if t_val not in temporal_seen:
-                            temporal_seen.add(t_val)
-                            temporal_items.append({"name": anio, "value": t_val, "code": int(anio) if anio.isdigit() else 2024, "value_type": "STRING", "temporal_value": f"{anio}-01-01T00:00:00Z", "aliases": [], "children": []})
+                    anio = str(row.get("anio") or row.get("año") or "2024")
+                    t_val = f"Y{anio}"
+                    if t_val not in temporal_seen:
+                        temporal_seen.add(t_val)
+                        temporal_items.append({"name": anio, "value": t_val, "code": int(anio) if anio.isdigit() else 2024, "value_type": "STRING", "temporal_value": f"{anio}-01-01T00:00:00Z", "aliases": [], "children": []})
 
-                catalogs_payload = [
-                    {"name": f"Spatial - {observatory_title}", "value": "SPATIAL", "catalog_type": "SPATIAL", "description": "Catálogo Geográfico", "items": spatial_items if spatial_items else [{"name": country, "value": country, "code": 1, "value_type": "STRING", "aliases": [], "children": []}]},
-                    {"name": f"Temporal - {observatory_title}", "value": "TEMPORAL", "catalog_type": "TEMPORAL", "description": "Catálogo Temporal", "items": temporal_items if temporal_items else [{"name": edition, "value": f"Y{edition}", "code": 1, "value_type": "STRING", "temporal_value": f"{edition}-01-01T00:00:00Z", "aliases": [], "children": []}]},
-                ]
+            catalogs_payload = [
+                {"name": f"Spatial - {observatory_title}", "value": "SPATIAL", "catalog_type": "SPATIAL", "description": "Catálogo Geográfico", "items": spatial_items if spatial_items else [{"name": country, "value": country, "code": 1, "value_type": "STRING", "aliases": [], "children": []}]},
+                {"name": f"Temporal - {observatory_title}", "value": "TEMPORAL", "catalog_type": "TEMPORAL", "description": "Catálogo Temporal", "items": temporal_items if temporal_items else [{"name": edition, "value": f"Y{edition}", "code": 1, "value_type": "STRING", "temporal_value": f"{edition}-01-01T00:00:00Z", "aliases": [], "children": []}]},
+            ]
 
-                cat_res = await client.post(f"/api/v2/observatories/{observatory_id}/catalogs/bulk", json=catalogs_payload, headers=headers)
-                if cat_res.status_code in (200, 201):
-                    catalog_ids = cat_res.json().get("catalog_ids", [])
-                    resumen["catalogos"] = f"{len(catalog_ids)} catálogos creados y vinculados"
-                else:
-                    warnings.append(f"Error cargando catálogos: {cat_res.text[:150]}")
+            cat_res = await client.post(f"/api/v2/observatories/{observatory_id}/catalogs/bulk", json=catalogs_payload, headers=headers)
+            if cat_res.status_code in (200, 201):
+                catalog_ids = cat_res.json().get("catalog_ids", [])
+                resumen["catalogos"] = f"{len(catalog_ids)} catálogos creados y vinculados"
+            else:
+                warnings.append(f"Error cargando catálogos: {cat_res.text[:150]}")
 
-                # 3. PRODUCTOS
-                steps_log.append("[3/6] Registrando productos múltiples por rango de años...")
-                s_year, e_year = int(start_year), int(end_year)
+            # 3. PRODUCTOS
+            steps_log.append("[3/6] Registrando productos múltiples por rango de años...")
+            s_year, e_year = int(start_year), int(end_year)
 
-                products_list = []
-                main_prod = {"name": f"Dataset {product_name_base} {s_year}-{e_year}", "description": f"Dataset completo de {product_description_base}", "catalog_item_ids": []}
+            products_list = []
+            main_prod = {"name": f"Dataset {product_name_base} {s_year}-{e_year}", "description": f"Dataset completo de {product_description_base}", "catalog_item_ids": []}
+            if product_id_base:
+                main_prod["product_id"] = f"{product_id_base}-dataset"
+            products_list.append(main_prod)
+
+            for year in range(s_year, e_year + 1):
+                y_prod = {"name": f"{product_name_base} — {year}", "description": f"{product_description_base} - Periodo {year}", "catalog_item_ids": []}
                 if product_id_base:
-                    main_prod["product_id"] = f"{product_id_base}-dataset"
-                products_list.append(main_prod)
+                    y_prod["product_id"] = f"{product_id_base}-{year}"
+                products_list.append(y_prod)
 
-                for year in range(s_year, e_year + 1):
-                    y_prod = {"name": f"{product_name_base} — {year}", "description": f"{product_description_base} - Periodo {year}", "catalog_item_ids": []}
-                    if product_id_base:
-                        y_prod["product_id"] = f"{product_id_base}-{year}"
-                    products_list.append(y_prod)
+            prod_res = await client.post(f"/api/v2/observatories/{observatory_id}/products/bulk", json={"products": products_list}, headers=headers)
+            if prod_res.status_code in (200, 201):
+                created_products = prod_res.json().get("products", [])
+                resumen["productos"] = f"{len(created_products)} productos creados"
+            else:
+                warnings.append(f"Error al registrar productos: {prod_res.text[:150]}")
 
-                prod_res = await client.post(f"/api/v2/observatories/{observatory_id}/products/bulk", json={"products": products_list}, headers=headers)
-                if prod_res.status_code in (200, 201):
-                    created_products = prod_res.json().get("products", [])
-                    resumen["productos"] = f"{len(created_products)} productos creados"
-                else:
-                    warnings.append(f"Error al registrar productos: {prod_res.text[:150]}")
+            # 4. DATASOURCE
+            steps_log.append("[4/6] Creando DataSource...")
+            ds_payload = {"name": datasource_name, "description": datasource_description, "format": "csv"}
+            ds_res = await client.post("/api/v2/datasources", json=ds_payload, headers=headers)
 
-                # 4. DATASOURCE
-                steps_log.append("[4/6] Creando DataSource...")
-                ds_payload = {"name": datasource_name, "description": datasource_description, "format": "csv"}
-                ds_res = await client.post("/api/v2/datasources", json=ds_payload, headers=headers)
+            if ds_res.status_code not in (200, 201):
+                return json.dumps({"status": "error", "message": f"Error al crear DataSource ({ds_res.status_code}).", "detalles": ds_res.text}, ensure_ascii=False, indent=2)
 
-                if ds_res.status_code not in (200, 201):
-                    return json.dumps({"status": "error", "message": f"Error al crear DataSource ({ds_res.status_code}).", "detalles": ds_res.text}, ensure_ascii=False, indent=2)
+            created_source_id = ds_res.json().get("source_id")
+            if not created_source_id:
+                return json.dumps({"status": "error", "message": "JUB no devolvió source_id."}, ensure_ascii=False, indent=2)
 
-                created_source_id = ds_res.json().get("source_id")
-                if not created_source_id:
-                    return json.dumps({"status": "error", "message": "JUB no devolvió source_id."}, ensure_ascii=False, indent=2)
+            resumen["datasource"] = f"ID: {created_source_id}"
 
-                resumen["datasource"] = f"ID: {created_source_id}"
+            # 5. REGISTROS
+            steps_log.append("[5/6] Registrando datos por lotes...")
+            records_list = []
 
-                # 5. REGISTROS
-                steps_log.append("[5/6] Registrando datos por lotes...")
-                records_list = []
+            with open(path_csv, encoding="utf-8") as f:
+                r_csv = csv.DictReader(f)
+                for idx, row in enumerate(r_csv):
+                    row_id = row.get("NSEQN") or row.get("id") or row.get("ID") or str(idx + 1)
+                    clean_ds_prefix = datasource_name.lower().split()[0] if datasource_name else "record"
+                    record_id = f"{clean_ds_prefix}-{row_id}"
 
-                with open(path_csv, encoding="utf-8") as f:
-                    r_csv = csv.DictReader(f)
-                    for idx, row in enumerate(r_csv):
-                        row_id = row.get("NSEQN") or row.get("id") or row.get("ID") or str(idx + 1)
-                        clean_ds_prefix = datasource_name.lower().split()[0] if datasource_name else "record"
-                        record_id = f"{clean_ds_prefix}-{row_id}"
+                    muni_raw = row.get("municipio") or row.get("Municipio") or row.get("estado") or country
+                    spatial_id = muni_raw.upper().replace(" ", "_")
 
-                        muni_raw = row.get("municipio") or row.get("Municipio") or row.get("estado") or country
-                        spatial_id = muni_raw.upper().replace(" ", "_")
+                    anio_raw = str(row.get("anio") or row.get("año") or row.get("YFD") or edition)
+                    temporal_id = f"{anio_raw}-01-01T00:00:00Z" if len(anio_raw) == 4 else "2024-01-01T00:00:00Z"
 
-                        anio_raw = str(row.get("anio") or row.get("año") or row.get("YFD") or edition)
-                        temporal_id = f"{anio_raw}-01-01T00:00:00Z" if len(anio_raw) == 4 else "2024-01-01T00:00:00Z"
+                    numerical_interests, interest_ids = {}, []
+                    for key, val in row.items():
+                        if key.lower() in ["nseqn", "id", "municipio", "estado", "anio", "año"]:
+                            continue
+                        try:
+                            num_val = float(val)
+                            numerical_interests[key.upper()] = num_val
+                        except (ValueError, TypeError):
+                            if val and str(val).strip():
+                                interest_ids.append(str(val))
 
-                        numerical_interests, interest_ids = {}, []
-                        for key, val in row.items():
-                            if key.lower() in ["nseqn", "id", "municipio", "estado", "anio", "año"]:
-                                continue
-                            try:
-                                num_val = float(val)
-                                numerical_interests[key.upper()] = num_val
-                            except (ValueError, TypeError):
-                                if val and str(val).strip():
-                                    interest_ids.append(str(val))
+                    if not numerical_interests:
+                        numerical_interests = {"VALOR": 0.0}
 
-                        if not numerical_interests:
-                            numerical_interests = {"VALOR": 0.0}
+                    records_list.append({
+                        "record_id": record_id,
+                        "spatial_id": spatial_id,
+                        "temporal_id": temporal_id,
+                        "interest_ids": interest_ids,
+                        "numerical_interest_ids": numerical_interests,
+                        "raw_payload": row,
+                    })
 
-                        records_list.append({
-                            "record_id": record_id,
-                            "spatial_id": spatial_id,
-                            "temporal_id": temporal_id,
-                            "interest_ids": interest_ids,
-                            "numerical_interest_ids": numerical_interests,
-                            "raw_payload": row,
-                        })
+            batch_size = 1000
+            total_uploaded = 0
+            for i in range(0, len(records_list), batch_size):
+                batch = records_list[i:i + batch_size]
+                rec_res = await client.post(f"/api/v2/datasources/{created_source_id}/records", json=batch, headers=headers)
+                if rec_res.status_code in (200, 201):
+                    total_uploaded += len(batch)
 
-                batch_size = 1000
-                total_uploaded = 0
-                for i in range(0, len(records_list), batch_size):
-                    batch = records_list[i:i + batch_size]
-                    rec_res = await client.post(f"/api/v2/datasources/{created_source_id}/records", json=batch, headers=headers)
-                    if rec_res.status_code in (200, 201):
-                        total_uploaded += len(batch)
+            resumen["registros"] = f"{total_uploaded} registros subidos en lotes"
 
-                resumen["registros"] = f"{total_uploaded} registros subidos en lotes"
+            # 6. HABILITAR
+            steps_log.append("[6/6] Finalizando tarea...")
+            complete_res = await client.post(
+                f"/api/v2/tasks/{task_id}/complete",
+                json={"success": True, "message": f"Aprovisionamiento completado para {observatory_title}"},
+                headers=headers,
+            )
 
-                # 6. HABILITAR
-                steps_log.append("[6/6] Finalizando tarea...")
-                complete_res = await client.post(
-                    f"/api/v2/tasks/{task_id}/complete",
-                    json={"success": True, "message": f"Aprovisionamiento completado para {observatory_title}"},
-                    headers=headers,
-                )
+            if complete_res.status_code == 200:
+                resumen["estado_final"] = "Observatorio Activo y Habilitado"
+            else:
+                warnings.append(f"No se pudo completar la tarea de activación: {complete_res.text[:150]}")
 
-                if complete_res.status_code == 200:
-                    resumen["estado_final"] = "Observatorio Activo y Habilitado"
-                else:
-                    warnings.append(f"No se pudo completar la tarea de activación: {complete_res.text[:150]}")
+            state = {
+                "observatory_id": observatory_id,
+                "task_id": task_id,
+                "source_id": created_source_id,
+                "csv_filename": str(path_csv),
+            }
 
-                state = {
-                    "observatory_id": observatory_id,
-                    "task_id": task_id,
-                    "source_id": created_source_id,
-                    "csv_filename": str(path_csv),
-                }
+            with open(STATE_FILE, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2, ensure_ascii=False)
 
-                with open(STATE_FILE, "w", encoding="utf-8") as f:
-                    json.dump(state, f, indent=2, ensure_ascii=False)
-
-                return json.dumps({
-                    "status": "success",
-                    "observatory_id": observatory_id,
-                    "task_id": task_id,
-                    "source_id": created_source_id,
-                    "steps_completed": steps_log,
-                    "resumen": resumen,
-                    "advertencias": warnings,
-                    "mensaje": "¡Indexación integral completada correctamente con lotes optimizados y mapeo numérico avanzado!",
-                }, ensure_ascii=False, indent=2)
+            return json.dumps({
+                "status": "success",
+                "observatory_id": observatory_id,
+                "task_id": task_id,
+                "source_id": created_source_id,
+                "steps_completed": steps_log,
+                "resumen": resumen,
+                "advertencias": warnings,
+                "mensaje": "¡Indexación integral completada correctamente con lotes optimizados y mapeo numérico avanzado!",
+            }, ensure_ascii=False, indent=2)
