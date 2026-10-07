@@ -1,3 +1,10 @@
+"""Construcción del agente JUB conectado al servidor MCP."""
+
+import os
+
+from agent_framework import Agent, MCPStreamableHTTPTool
+from agent_framework.ollama import OllamaChatClient
+
 _INSTRUCTIONS = (
     "Eres el Agente JUB, especializado en gestión, consulta e indexación de datos en JUB.\n"
     "Tu tarea es identificar qué solicita el usuario, seleccionar la herramienta MCP correcta, EJECUTARLA y responder con el resultado real devuelto por la herramienta.\n\n"
@@ -137,3 +144,18 @@ _INSTRUCTIONS = (
     "- Después de ejecutar `pipeline`, resume observatory_id, task_id, source_id, registros y estado final cuando estén disponibles.\n"
     "- No afirmes que un observatorio está habilitado o visible si la herramienta no lo confirmó.\n"
 )
+
+def build_agent() -> Agent:
+    chat_client = OllamaChatClient(
+        host=os.environ.get("OLLAMA_URL", "http://ollama:11434"),
+        model=os.environ.get("OLLAMA_MODEL", "qwen3:4b"),
+    )
+
+    return chat_client.as_agent(
+        name="Agente_JUB",
+        instructions=_INSTRUCTIONS,
+        tools=MCPStreamableHTTPTool(
+            name="tutorial-mcp",
+            url=os.environ.get("MCP_SERVER_URL", "http://mcp-server:8000/mcp"),
+        ),
+    )
