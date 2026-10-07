@@ -104,8 +104,7 @@ def register(mcp: FastMCP):
                 "message": f"Error al analizar la imagen con IA: {str(e)}"
             }, ensure_ascii=False)
 
-
-    # Herramienta para crear observatorio
+    # Herramienta para crear  observatorio
     @mcp.tool(name="crear_observatorio")
     async def crear_observatorio(
         observatory_title: str,
@@ -116,11 +115,14 @@ def register(mcp: FastMCP):
         image_url: Optional[str] = None,
         user_id: str = "usr_system",
     ) -> str:
-        """Crea el contenedor raíz (Observatorio) en JUB v2 y completa su tarea para hacerlo visible en la interfaz."""
-        token = await _get_jub_token()
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        """Crea un observatorio en JUB y completa su tarea para habilitarlo."""
 
-        setup_payload = {
+        token = await _get_jub_token()
+        if not token:
+            return json.dumps({"status": "error", "message": "No fue posible autenticarse con JUB."}, ensure_ascii=False)
+
+        headers = {"Authorization": f"Bearer {token}"}
+        payload = {
             "title": observatory_title,
             "user_id": user_id,
             "description": observatory_description,
@@ -130,33 +132,61 @@ def register(mcp: FastMCP):
                 "institution": institution,
             },
         }
+
         if image_url:
-            setup_payload["image_url"] = image_url
+            payload["image_url"] = image_url
 
-        async with httpx.AsyncClient(base_url=JUB_URL, timeout=60.0) as client:
-            res = await client.post("/api/v2/observatories/setup", json=setup_payload, headers=headers)
-            if res.status_code not in (200, 201):
-                return json.dumps({"status": "error", "message": res.text}, ensure_ascii=False)
-            
-            data = res.json()
-            observatory_id = data.get("observatory_id")
-            task_id = data.get("task_id")
+        try:
+            async with httpx.AsyncClient(base_url=JUB_URL, timeout=60.0) as client:
+                # Crear observatorio
+                res = await client.post("/api/v2/observatories/setup", json=payload, headers=headers)
+                if res.status_code not in (200, 201):
+                    return json.dumps({
+                        "status": "error",
+                        "message": "No fue posible crear el observatorio.",
+                        "details": res.text,
+                    }, ensure_ascii=False)
 
-            # COMPLETAR LA TAREA AUTOMÁTICAMENTE PARA QUE APAREZCA EN LA UI
-            if task_id:
-                await client.post(
+                data = res.json()
+                observatory_id = data.get("observatory_id")
+                task_id = data.get("task_id")
+
+                if not observatory_id or not task_id:
+                    return json.dumps({
+                        "status": "partial_success",
+                        "observatory_id": observatory_id,
+                        "task_id": task_id,
+                        "message": "El observatorio fue creado, pero JUB no devolvió los datos necesarios para habilitarlo.",
+                    }, ensure_ascii=False)
+
+                # Habilitar observatorio
+                complete = await client.post(
                     f"/api/v2/tasks/{task_id}/complete",
-                    json={"success": True, "message": f"Observatorio {observatory_title} habilitado con éxito."},
+                    json={"success": True, "message": f"Observatorio '{observatory_title}' habilitado."},
                     headers=headers,
                 )
 
-            return json.dumps({
-                "status": "success",
-                "observatory_id": observatory_id,
-                "task_id": task_id,
-                "message": "Observatorio creado, habilitado y visible en la interfaz correctamente."
-            }, ensure_ascii=False, indent=2)
+                if complete.status_code not in (200, 201):
+                    return json.dumps({
+                        "status": "partial_success",
+                        "observatory_id": observatory_id,
+                        "task_id": task_id,
+                        "message": "El observatorio fue creado, pero no pudo habilitarse.",
+                        "details": complete.text,
+                    }, ensure_ascii=False)
 
+                return json.dumps({
+                    "status": "success",
+                    "observatory_id": observatory_id,
+                    "task_id": task_id,
+                    "message": f"Observatorio '{observatory_title}' creado y habilitado correctamente.",
+                }, ensure_ascii=False, indent=2)
+
+        except Exception as e:
+            return json.dumps({
+                "status": "error",
+                "message": f"Error comunicándose con JUB: {str(e)}",
+            }, ensure_ascii=False)
 
     # Herramienta para crear catálogos robusta
     @mcp.tool(name="crear_catalogos")
