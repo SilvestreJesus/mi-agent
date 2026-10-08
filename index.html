@@ -581,7 +581,7 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
       if (!chatToDeleteId) return;
 
       try {
-        await fetch(`http://localhost:8091/sessions/${chatToDeleteId}`, { method: "DELETE" });
+        await fetch(`https://responsible-dream-production-2439.up.railway.app/sessions/${chatToDeleteId}`, { method: "DELETE" });
         if (currentSessionId === chatToDeleteId) {
           nuevoChat();
         }
@@ -775,7 +775,7 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
 
     async function cargarConversacion(id) {
       try {
-        const res = await fetch(`http://localhost:8091/sessions/${id}`);
+        const res = await fetch(`https://responsible-dream-production-2439.up.railway.app/sessions/${id}`);
         if (!res.ok) return;
         const data = await res.json();
 
@@ -960,7 +960,7 @@ Busca en el observatorio activo los records que cumplan con jub.v1.VI(...) o haz
               <div class="assistant-label mb-2" style="color:var(--danger)">No se pudo completar la consulta</div>
               <div class="text-[color:var(--muted)]">
                 No fue posible establecer comunicación con el servidor local. Asegúrate de que FastAPI esté corriendo en 
-                <span class="mono text-xs">http://localhost:8091</span> y tenga habilitado CORS.<br>
+                <span class="mono text-xs">https://responsible-dream-production-2439.up.railway.app</span> y tenga habilitado CORS.<br>
                 <span class="mono text-xs text-red-400 mt-1 block">${escapeHtml(error.message)}</span>
               </div>
             </div>
